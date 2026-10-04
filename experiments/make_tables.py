@@ -156,6 +156,16 @@ def numbers(floor, controls, quoted, abl, sens):
     coolant = next(c for c in caps["attacks"] if c["name"] == "max_engine_coolant_temp_attack_masquerade")
     lab = pd.read_parquet(ROOT / f"data/interim/{coolant['name']}.raw.parquet", columns=["label"])
     m["CoolantNinj"] = int(lab.label.sum())
+    if (R / "crysys.csv").exists():
+        cr = pd.read_csv(R / "crysys.csv")
+        cm = cr[(cr.family == "masquerade") & (cr.detector == FLOOR_DET)]
+        m["CryNrec"] = cr.recording.nunique()
+        m["CryNmasq"] = len(cm)
+        m["CryMasqAUC"] = f"{cm.auc_roc.mean():.2f}"
+        per = cm.groupby("strategy")["auc_roc"].mean()
+        m["CryStratMin"], m["CryStratMax"] = f"{per.min():.2f}", f"{per.max():.2f}"
+        m["CryFlagged"] = f"{cm.flagged_share.mean() * 100:.1f}"
+        m["CryFrameAUC"] = f"{cm.frame_auc_roc.mean():.2f}"
     tex = "\n".join(rf"\newcommand{{\{k}}}{{{v}}}" for k, v in m.items()) + "\n"
     (OUT / "numbers.tex").write_text(tex)
     print("\n== numbers.tex\n" + tex)
