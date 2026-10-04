@@ -72,14 +72,141 @@ def write(t, name, fmt="%.2f"):
     print(f"\n== {name}\n{t.to_string(float_format=fmt.__mod__)}")
 
 
+TYPE_ORDER = ["max_speedometer_attack", "max_engine_coolant_temp_attack", "correlated_signal_attack",
+              "reverse_light_off_attack", "reverse_light_on_attack"]
+METHOD_TEX = {"MatrixCorrelationDistribution": "MCD", "MatrixCorrelationCorrelation": "MCC",
+              "Ganesan17": "G17", "Moriano22": "M22"}
+
+
+def paper_table_floor(floor, controls):
+    """Booktabs body: one row per masquerade capture, window AUC for T1-T4 + IF, T2 TPR@1%FPR."""
+    v = floor[(floor["agg"] == "mean") & (floor.family == "masquerade")]
+    auc = v.pivot_table(index="capture", columns="detector", values="auc_roc")
+    tpr = v[v.detector == FLOOR_DET].set_index("capture")["det_rate_at_1pct_fpr"]
+    ifm = controls[controls.family == "masquerade"].groupby("capture")["auc_roc"].mean()
+    typ = v.drop_duplicates("capture").set_index("capture")["attack_type"]
+    lines = []
+    for k, a in enumerate(TYPE_ORDER):
+        if k:
+            lines.append(r"\midrule")
+        for c in sorted(typ[typ == a].index):
+            cells = [f"{auc.loc[c, d]:.2f}" for d in ("T1_valueset", "T2_range", "T3_envelope", "T4_novelty")]
+            best = max(float(x) for x in cells[:3])
+            cells = [rf"\textbf{{{x}}}" if float(x) >= 0.95 and i < 3 else x for i, x in enumerate(cells)]
+            lines.append(" & ".join([short(c)] + cells + [f"{ifm[c]:.2f}", f"{tpr[c] * 100:.0f}"]) + r" \\")
+    (OUT / "paper_table_floor.tex").write_text("\n".join(lines) + "\n")
+
+
+def paper_table_delta(floor, controls, quoted):
+    t3 = table3(floor, controls, quoted)
+    lines = []
+    for a in TYPE_ORDER:
+        r = t3.loc[PRETTY[a]]
+        q = quoted[quoted.attack_type == a]
+        mu_m = METHOD_TEX[q.loc[q["mu"].idxmax(), "method"]]
+        mx_m = METHOD_TEX[q.loc[q["max"].idxmax(), "method"]]
+        d = r["Delta (tuned max)"]
+        lines.append(f"{PRETTY[a]} & {r['Trivial T2']:.2f} & {r['Best published (mean)']:.2f} ({mu_m}) & "
+                     f"{r['Best published (tuned max)']:.2f} ({mx_m}) & {sgn(d)} \\\\")
+    (OUT / "paper_table_delta.tex").write_text("\n".join(lines) + "\n")
+
+
+def sgn(x):
+    """Signed number for prose: true minus sign, and 0.00 without a sign."""
+    if round(x, 2) == 0:
+        return "0.00"
+    return (r"\ensuremath{-}" if x < 0 else "+") + f"{abs(x):.2f}"
+
+
+def numbers(floor, controls, quoted, abl, sens):
+    """LaTeX macros for every number quoted in the paper prose."""
+    m = {}
+    v = floor[(floor["agg"] == "mean") & (floor.family == "masquerade")]
+    t2 = v[v.detector == FLOOR_DET]
+    ext = t2[t2.attack_type.isin(TYPE_ORDER[:3])]
+    rl = t2[t2.attack_type.isin(TYPE_ORDER[3:])]
+    m["NExtCaps"] = len(ext)
+    m["NRlCaps"] = len(rl)
+    m["ExtAUCmin"] = f"{ext.auc_roc.min():.2f}"
+    m["RlAUCmin"] = f"{rl.auc_roc.min():.2f}"
+    m["RlAUCmax"] = f"{rl.auc_roc.max():.2f}"
+    sc = ext[ext.attack_type != "max_engine_coolant_temp_attack"]
+    m["SCTPRmin"] = f"{sc.det_rate_at_1pct_fpr.min() * 100:.0f}"
+    m["SCTPRmax"] = f"{sc.det_rate_at_1pct_fpr.max() * 100:.0f}"
+    fab = floor[(floor["agg"] == "mean") & (floor.family == "fabrication") & (floor.detector == FLOOR_DET)]
+    pair = fab.set_index(fab.capture + "_masquerade")["auc_roc"]
+    diff = (pair - t2.set_index("capture")["auc_roc"]).abs().dropna()
+    m["FabMasqMaxDiffExt"] = f"{diff[ext.capture].max():.2f}"  # extreme-value twins only
+    t3 = table3(floor, controls, quoted)
+    d = t3["Delta (tuned max)"]
+    m["DeltaExtMin"] = sgn(d[[PRETTY[a] for a in TYPE_ORDER[:3]]].min())
+    m["DeltaExtMax"] = sgn(d[[PRETTY[a] for a in TYPE_ORDER[:3]]].max())
+    m["DeltaRlMin"] = sgn(d[[PRETTY[a] for a in TYPE_ORDER[3:]]].min())
+    m["DeltaRlMax"] = sgn(d[[PRETTY[a] for a in TYPE_ORDER[3:]]].max())
+    ifc = controls[controls.family == "masquerade"].groupby("attack_type")["auc_roc"].mean()
+    m["IFrlOn"] = f"{ifc['reverse_light_on_attack']:.2f}"
+    m["IFrlOff"] = f"{ifc['reverse_light_off_attack']:.2f}"
+    m["IFspeedo"] = f"{ifc['max_speedometer_attack']:.2f}"
+    a = abl[abl.family == "masquerade"]
+    ex = a[(a.variant == "T2_excl_target") & a.attack_type.isin(TYPE_ORDER[:3])]
+    m["ExclTargetMin"], m["ExclTargetMax"] = f"{ex.auc_roc.min():.2f}", f"{ex.auc_roc.max():.2f}"
+    s = sens[(sens.detector == FLOOR_DET) & sens.attack_type.isin(TYPE_ORDER[:3])]
+    m["SensExtMin"] = f"{s.auc_roc.min():.2f}"
+    caps = __import__("yaml").safe_load(open(ROOT / "configs/captures.yaml"))
+    coolant = next(c for c in caps["attacks"] if c["name"] == "max_engine_coolant_temp_attack_masquerade")
+    lab = pd.read_parquet(ROOT / f"data/interim/{coolant['name']}.raw.parquet", columns=["label"])
+    m["CoolantNinj"] = int(lab.label.sum())
+    tex = "\n".join(rf"\newcommand{{\{k}}}{{{v}}}" for k, v in m.items()) + "\n"
+    (OUT / "numbers.tex").write_text(tex)
+    print("\n== numbers.tex\n" + tex)
+
+
+def paper_table_construction():
+    """Per attack type: target AID, bytes written, injected value(s), ambient range of each written
+    byte (fit-set ambient captures only) and whether the injected value lies outside it."""
+    sys.path.insert(0, str(ROOT))
+    from src.io_road import load_captures_cfg
+    from src.pipeline import load_ambient, load_experiment_cfg, split_ambient
+    caps, exp = load_captures_cfg(), load_experiment_cfg()
+    fit, _ = split_ambient(caps, exp)
+    amb = load_ambient(fit)
+    lines, seen = [], set()
+    for a in TYPE_ORDER:
+        c = next(x for x in caps["attacks"] if x["attack_type"] == a and x["family"] == "masquerade")
+        aid, pat = c["target_aid"], c["injection_data"]
+        g = amb[amb.aid == aid]
+        cells = []
+        for j in range(8):
+            hx = pat[2 * j: 2 * j + 2]
+            if hx == "XX":
+                continue
+            val, col = int(hx, 16), g[f"b{j}"]
+            lo, hi, nd = int(col.min()), int(col.max()), col.nunique()
+            out = val < lo or val > hi
+            rng = "{" + ",".join(f"{x}" for x in sorted(col.unique())) + "}" if nd <= 3 else f"[{lo},{hi}]"
+            cells.append(f"B{j}={val}" + (r"$^\ast$" if out else "") + f" {rng}")
+        if a == "correlated_signal_attack":  # full 8-byte write; show only the high bytes that matter
+            cells = [x for x in cells if x[:2] in ("B0", "B2", "B4", "B6")]
+        lines.append(f"{PRETTY[a]} & 0x{aid:X} & " + "; ".join(cells).replace("{", r"\{").replace("}", r"\}")
+                     + r" \\")
+    (OUT / "paper_table_construction.tex").write_text("\n".join(lines) + "\n")
+    print("\n".join(lines))
+
+
 def main():
+    paper_table_construction()
     floor = pd.read_csv(R / "floor.csv")
     quoted = pd.read_csv(ROOT / "data/published/moriano2024_table2.csv", comment="#")
     write(table2(floor), "table2_floor")
     if (R / "controls.csv").exists():
-        write(table3(floor, pd.read_csv(R / "controls.csv"), quoted), "table3_delta")
+        controls = pd.read_csv(R / "controls.csv")
+        write(table3(floor, controls, quoted), "table3_delta")
+        paper_table_floor(floor, controls)
+        paper_table_delta(floor, controls, quoted)
     if (R / "ablation.csv").exists():
-        write(table4(pd.read_csv(R / "ablation.csv")), "table4_ablation")
+        abl = pd.read_csv(R / "ablation.csv")
+        write(table4(abl), "table4_ablation")
+        numbers(floor, controls, quoted, abl, pd.read_csv(R / "sensitivity.csv"))
 
 
 if __name__ == "__main__":

@@ -34,7 +34,8 @@ LABEL = {"max_speedometer_attack": "Max speedo", "max_engine_coolant_temp_attack
          "reverse_light_on_attack": "Rev. light on"}
 
 plt.rcParams.update({
-    "font.family": "serif", "font.size": 8, "axes.titlesize": 8, "axes.labelsize": 8,
+    "font.family": "serif", "font.serif": ["Liberation Serif", "DejaVu Serif"],
+    "font.size": 8, "axes.titlesize": 8, "axes.labelsize": 8,
     "xtick.labelsize": 7, "ytick.labelsize": 7, "legend.fontsize": 7, "axes.edgecolor": INK2,
     "axes.labelcolor": INK, "xtick.color": INK2, "ytick.color": INK2, "axes.linewidth": 0.6,
     "pdf.fonttype": 42, "ps.fonttype": 42, "savefig.bbox": "tight", "savefig.pad_inches": 0.02,
@@ -109,7 +110,7 @@ def fig3_sensitivity():
             ax.set_xscale("log", base=2)
             ax.set_xticks([0.25, 0.5, 1, 2], ["0.25", "0.5", "1", "2"])
         else:
-            ax.set_xticks([0.1, 0.25, 0.5, 0.75, 1.0], ["10%", "25%", "50%", "75%", "100%"])
+            ax.set_xticks([0.1, 0.25, 0.5, 0.75, 1.0], ["10%", "", "50%", "", "100%"])
             ax.tick_params(axis="x", labelsize=6)
         _axes(ax)
     axs[0].set_ylabel("T2 window AUC-ROC")
@@ -130,7 +131,7 @@ def fig4_byte_heatmap():
     caps = load_captures_cfg()
     pat = {c["name"]: c["injection_data"] for c in caps["attacks"]}
     m = h[[f"b{j}" for j in range(8)]].to_numpy()
-    fig, ax = plt.subplots(figsize=(COL, 2.5))
+    fig, ax = plt.subplots(figsize=(COL, 2.25))
     from matplotlib.colors import LinearSegmentedColormap
     cmap = LinearSegmentedColormap.from_list("seqblue", ["#f4f3f0", "#86b6ef", "#2a78d6", "#0d366b"])
     ax.imshow(m, cmap=cmap, vmin=0, vmax=1, aspect="auto")
