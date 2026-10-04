@@ -228,6 +228,12 @@ def deep_section():
     m["CtxSeeds"] = n_seeds
     m["CtxRoadMin"] = f"{min(ctx[(a, 'ROAD')] for a in TYPE_ORDER):.2f}"
     m["CtxIRMin"] = f"{min(ctx[(a, 'ROAD-IR')] for a in TYPE_ORDER):.2f}"
+    four = [a for a in TYPE_ORDER if a != "max_engine_coolant_temp_attack"]
+    m["CtxFourMin"] = f"{min(min(ctx[(a, 'ROAD')], ctx[(a, 'ROAD-IR')]) for a in four):.2f}"
+    cs_cool = per[(per["mode"] == "ctx") & (per.attack_type == "max_engine_coolant_temp_attack") & (per.variant == "ROAD")]
+    m["CtxCoolMean"] = f"{cs_cool.auc_roc.mean():.2f}"
+    m["CtxCoolMin"] = f"{cs_cool.auc_roc.min():.2f}"
+    m["CtxCoolMax"] = f"{cs_cool.auc_roc.max():.2f}"
     m["CtxRlMin"] = f"{min(ctx[(a, 'ROAD')] for a in TYPE_ORDER[3:]):.2f}"
     m["CtxTwinMin"] = f"{min(ctx[(a, 'TWIN')] for a in TYPE_ORDER):.2f}"
     m["CtxTwinMax"] = f"{max(ctx[(a, 'TWIN')] for a in TYPE_ORDER):.2f}"
@@ -245,6 +251,11 @@ def deep_section():
         m["PaeRlMax"] = f"{max(pae[(a, 'ROAD')] for a in TYPE_ORDER[3:]):.2f}"
         m["PaeIRMin"] = f"{min(pae[(a, 'ROAD-IR')] for a in TYPE_ORDER[:3]):.2f}"
         m["PaeIRMax"] = f"{max(pae[(a, 'ROAD-IR')] for a in TYPE_ORDER[:3]):.2f}"
+    if (R / "deep_sup_trainIR.csv").exists():
+        si = pd.read_csv(R / "deep_sup_trainIR.csv").groupby(["attack_type", "variant"])["auc_roc"].mean()
+        hi = [a for a in TYPE_ORDER if sup[(a, "TWIN")] >= 0.7]  # same types as the ROAD-trained model
+        m["SupIRTwinMin"] = f"{min(si[(a, 'TWIN')] for a in hi):.2f}"
+        m["SupIRTwinMax"] = f"{max(si[(a, 'TWIN')] for a in hi):.2f}"
     tpr = per[(per["mode"] == "ctx") & (per.variant == "ROAD")].groupby("attack_type")["det_rate_at_1pct_fpr"].mean()
     m["CtxTprSC"] = f"{min(tpr['max_speedometer_attack'], tpr['correlated_signal_attack']) * 100:.0f}"
     bus = cs[(cs.rule == "bus_calib") & (cs["mode"] == "ctx") & (cs.variant == "ROAD")].groupby("attack_type")["auc_roc"].mean()

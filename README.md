@@ -97,3 +97,21 @@ bash data/raw/crysys/pdl.sh && python experiments/run_crysys.py
 python experiments/make_tables.py && python -m src.figures
 paper/build.sh                     # needs conda env texenv (tectonic)
 ```
+
+## Extended GPU work (4 Oct 2026, node1 NVIDIA L4)
+
+- **ROAD-IR** (`src/road_ir.py`): injected bytes clamped into the ambient range. Per-ID T2: 1.00 → ≤0.53.
+- **Benign twins**: fabrication capture minus injected frames = same drive, no attack.
+- **Supervised Transformer-GRU** (LOCO, 3 seeds): ROAD 0.79–0.99, but flags the attack interval on benign
+  twins with AUC 0.75–0.92 on 4/5 types (also when trained on ROAD-IR: 0.74–0.92) → driving-phase shortcut.
+- **Context-consistency Transformer** (`src/deep.py` CTX, 3 seeds, ambient-only): per-ID AUC ≥0.99 on
+  speedometer, correlated, reverse light off/on on ROAD and ROAD-IR; twins 0.37–0.53; coolant (43 frames)
+  unstable (0.41–0.99). PAE (same model, no cross-ID context) inconsistent. Bus-wide fusion fails (≤0.66).
+
+```bash
+python -m src.road_ir; python -c "from src.road_ir import main_twins; main_twins()"; python -m src.busstate
+ssh node1 'cd .../road-masquerade-floor && python experiments/run_deep.py --mode ctx --seeds 3 --out results/deep_ctx.csv'
+python experiments/run_deep.py --mode sup --seeds 3 --out results/deep_sup.csv          # (+ --train-ir)
+python experiments/dump_ctx_nll.py --mode ctx --seed S; python experiments/ctx_scoring.py --mode ctx --seed S --out results/ctx_scoring_sS.csv
+python experiments/run_t2_perid.py --out results/t2_perid.csv
+```
