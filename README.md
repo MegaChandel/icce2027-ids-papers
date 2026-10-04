@@ -74,3 +74,26 @@ Fit on 10 ambient captures; FPR calibrated on 2 held-out (basic_short, extended_
 - **Blueprint H2 is false as stated.** Correlated-signal does NOT resist: 3 of its 4 injected
   wheel-speed high bytes (0x59, 0x45, 0xFF) exceed the ambient maximum (53), highway driving included.
 - Fabrication twins give identical numbers → the effect is inherited from the fabrication payloads.
+
+## Final results (4 Oct 2026) — see paper/main.pdf
+
+- vs published (Moriano et al., JISA 2026, quoted): delta-over-trivial −0.26 / 0.00 / −0.12 on speedometer /
+  coolant / correlated; +0.28 / +0.25 on reverse light off / on.
+- IsolationForest control: worse than T2 on extreme-value types; only payload model that separates reverse-light-on (0.86).
+- Ablation: excluding the target AID → 0.24–0.71; only the bytes written by the attack carry the signal.
+- Sensitivity: T2 = 1.00 on extreme types at every window length and with 10% of ambient data.
+- CrySyS (experiment e, 26 recordings, 312 masquerade logs, leave-one-recording-out): T2 AUC 0.49; only 1.8% of
+  modified frames leave the ambient range → the shortcut is specific to ROAD's construction.
+
+## Reproduce
+
+```bash
+conda activate roadmasq; export PYTHONNOUSERSITE=1
+bash data/raw/pdl.sh && python -m src.cli inventory && python -m src.cli cache
+pytest -q tests
+python experiments/run_floor.py; python experiments/run_controls.py
+python experiments/run_ablation.py; python experiments/run_sensitivity.py
+bash data/raw/crysys/pdl.sh && python experiments/run_crysys.py
+python experiments/make_tables.py && python -m src.figures
+paper/build.sh                     # needs conda env texenv (tectonic)
+```
