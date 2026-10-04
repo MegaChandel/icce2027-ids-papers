@@ -94,16 +94,22 @@ class ByteRange:
             out[idx] = (b[idx] < self.lo[aid]) | (b[idx] > self.hi[aid])
         return out
 
-    def score(self, frames) -> np.ndarray:
-        """Continuous score: total distance outside the range, summed over bytes."""
+    def byte_excess(self, frames, normalise: bool = False) -> np.ndarray:
+        """float[n, 8]: distance outside [min, max] per byte (unseen AID: 256 per byte).
+        normalise=True divides by the range width + 1, making bytes comparable."""
         b = frames[BYTE_COLS].to_numpy(np.int16)
-        out = np.full(len(frames), 8 * 256.0)
+        out = np.full((len(frames), 8), 256.0)
         for aid, idx in frames.groupby("aid").indices.items():
             if aid not in self.lo:
                 continue
-            d = np.maximum(self.lo[aid] - b[idx], 0) + np.maximum(b[idx] - self.hi[aid], 0)
-            out[idx] = d.sum(1)
+            lo, hi = self.lo[aid], self.hi[aid]
+            d = np.maximum(lo - b[idx], 0) + np.maximum(b[idx] - hi, 0)
+            out[idx] = d / (hi - lo + 1) if normalise else d
         return out
+
+    def score(self, frames) -> np.ndarray:
+        """Continuous score: total distance outside the range, summed over bytes."""
+        return self.byte_excess(frames).sum(1)
 
 
 @dataclass
