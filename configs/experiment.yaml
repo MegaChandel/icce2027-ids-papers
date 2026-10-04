@@ -1,0 +1,24 @@
+# Experiment parameters. Seeds live here, not in code.
+seed: 0
+n_boot: 10000
+
+# Ambient captures held out from fitting, used ONLY for FPR calibration
+# (blueprint §10 E2). Names must match configs/captures.yaml.
+calibration_ambient: [ambient_dyno_drive_basic_short, ambient_dyno_drive_extended_short]
+
+window:
+  length_s: 1.0
+  stride_s: 0.25
+  agg: mean               # mean frame score per window (flag rate for 0/1 scores)
+target_fpr: 0.01
+
+t3_quantiles: [0.0, 0.1]  # [p0,p100] and [p0.1,p99.9]
+
+sensitivity:
+  window_length_s: [0.25, 0.5, 1.0, 2.0]
+  t3_quantiles: [0.0, 0.1, 1.0]
+  ambient_fraction: [0.1, 0.25, 0.5, 0.75, 1.0]
+
+isolation_forest:
+  n_estimators: 200
+  seeds: [0, 1, 2]
