@@ -1,0 +1,40 @@
+task,model,seed,auc_roc
+"benign-vs-benign (OLD, temporal split)",M1_LSTM,0,0.5086189047314713
+"benign-vs-benign (OLD, temporal split)",M1_LSTM,1,0.7068117264027395
+"benign-vs-benign (OLD, temporal split)",M1_LSTM,2,0.7167668482263794
+"benign-vs-benign (OLD, temporal split)",M1_LSTM,3,0.5374361939511577
+"benign-vs-benign (OLD, temporal split)",M1_LSTM,4,0.5735688630968827
+"benign-vs-benign (OLD, temporal split)",M2_CNN,0,0.8804651407274738
+"benign-vs-benign (OLD, temporal split)",M2_CNN,1,0.8748568109892239
+"benign-vs-benign (OLD, temporal split)",M2_CNN,2,0.8721859793679618
+"benign-vs-benign (OLD, temporal split)",M2_CNN,3,0.8798513590696415
+"benign-vs-benign (OLD, temporal split)",M2_CNN,4,0.8739552090030711
+"benign-vs-benign (OLD, temporal split)",M4_NGRAM,0,0.7754587977828219
+"benign-vs-benign (OLD, temporal split)",R1_RATE,0,0.4900073782003986
+"benign-vs-benign (OLD, temporal split)",R2_HIST,0,0.5013121786460395
+"heartbeat vs normal (NEW, temporal split)",M1_LSTM,0,0.9999709488802363
+"heartbeat vs normal (NEW, temporal split)",M1_LSTM,1,1.0
+"heartbeat vs normal (NEW, temporal split)",M1_LSTM,2,0.999997644503803
+"heartbeat vs normal (NEW, temporal split)",M1_LSTM,3,1.0
+"heartbeat vs normal (NEW, temporal split)",M1_LSTM,4,0.9998359004316053
+"heartbeat vs normal (NEW, temporal split)",M2_CNN,0,0.9999992148346011
+"heartbeat vs normal (NEW, temporal split)",M2_CNN,1,1.0
+"heartbeat vs normal (NEW, temporal split)",M2_CNN,2,1.0
+"heartbeat vs normal (NEW, temporal split)",M2_CNN,3,0.9999010691597239
+"heartbeat vs normal (NEW, temporal split)",M2_CNN,4,0.999996074173005
+"heartbeat vs normal (NEW, temporal split)",M4_NGRAM,0,0.9997039926445705
+"heartbeat vs normal (NEW, temporal split)",R1_RATE,0,0.5501873797224754
+"heartbeat vs normal (NEW, temporal split)",R2_HIST,0,0.5461363188462466
+"heartbeat vs normal (OLD, file split)",M1_LSTM,0,0.977381780348738
+"heartbeat vs normal (OLD, file split)",M1_LSTM,1,0.9793313449595046
+"heartbeat vs normal (OLD, file split)",M1_LSTM,2,0.9717764924000899
+"heartbeat vs normal (OLD, file split)",M1_LSTM,3,0.9939116134721739
+"heartbeat vs normal (OLD, file split)",M1_LSTM,4,0.9972468374584678
+"heartbeat vs normal (OLD, file split)",M2_CNN,0,0.9993032010421716
+"heartbeat vs normal (OLD, file split)",M2_CNN,1,0.9885542896657032
+"heartbeat vs normal (OLD, file split)",M2_CNN,2,0.9898325994921229
+"heartbeat vs normal (OLD, file split)",M2_CNN,3,0.9929365686828023
+"heartbeat vs normal (OLD, file split)",M2_CNN,4,0.9954547760446921
+"heartbeat vs normal (OLD, file split)",M4_NGRAM,0,0.9978800768788714
+"heartbeat vs normal (OLD, file split)",R1_RATE,0,0.9404041756618648
+"heartbeat vs normal (OLD, file split)",R2_HIST,0,0.921951935417364

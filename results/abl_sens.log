@@ -1,0 +1,59 @@
+120 jobs
+  10/120 (36s)
+  20/120 (58s)
+  30/120 (71s)
+  40/120 (128s)
+  50/120 (156s)
+  60/120 (177s)
+  70/120 (204s)
+  80/120 (261s)
+  90/120 (335s)
+  100/120 (375s)
+  110/120 (410s)
+  120/120 (448s)
+setting      HCRL->SHADOW  NEW->OLD  OLD->NEW  SHADOW->NEW  SHADOW->OLD  Within-NEW  Within-OLD  Within-SHADOW
+model                                                                                                         
+M1_LSTM             0.493     0.796     0.791        0.236        0.199       1.000       0.996          0.939
+M1_LSTM+dt          0.384     0.825     0.819        0.402        0.187       0.998       0.998          0.996
+M1_LSTM+dtz         0.476     0.815     0.803        0.321        0.088       1.000       0.999          0.997
+wrote results/ablation_timing.csv
+48 jobs
+  10/48 (19s)
+  20/48 (39s)
+  30/48 (58s)
+  40/48 (99s)
+  48/48 (111s)
+setting   HCRL->SHADOW  NEW->OLD  OLD->NEW  SHADOW->NEW  SHADOW->OLD  Within-NEW  Within-OLD  Within-SHADOW
+model                                                                                                      
+M1_LSTM          0.408     0.795     0.844        0.245        0.236       1.000       0.988          0.927
+M4_NGRAM         0.406     0.817     0.901        0.263        0.186       0.997       0.989          0.910
+R1_RATE          0.642     0.967     0.823        0.758        0.881       0.826       0.966          0.468
+R2_HIST          0.544     0.936     0.808        0.778        0.845       0.823       0.937          0.667
+wrote results/sens_L16.csv
+48 jobs
+  10/48 (21s)
+  20/48 (38s)
+  30/48 (56s)
+  40/48 (93s)
+  48/48 (107s)
+setting   HCRL->SHADOW  NEW->OLD  OLD->NEW  SHADOW->NEW  SHADOW->OLD  Within-NEW  Within-OLD  Within-SHADOW
+model                                                                                                      
+M1_LSTM          0.477     0.783     0.803        0.202        0.245       0.861       0.996          0.952
+M4_NGRAM         0.475     0.939     0.982        0.259        0.240       1.000       1.000          0.946
+R1_RATE          0.745     0.985     0.836        0.747        0.767       0.845       0.985          0.761
+R2_HIST          0.734     0.984     0.782        0.794        0.836       0.873       0.985          0.927
+wrote results/sens_L64.csv
+48 jobs
+  10/48 (22s)
+  20/48 (39s)
+  30/48 (58s)
+  40/48 (98s)
+  48/48 (111s)
+setting   HCRL->SHADOW  NEW->OLD  OLD->NEW  SHADOW->NEW  SHADOW->OLD  Within-NEW  Within-OLD  Within-SHADOW
+model                                                                                                      
+M1_LSTM          0.545     0.861     0.773        0.345        0.339       0.832       0.933          0.904
+M4_NGRAM         0.451     0.979     0.996        0.268        0.250       1.000       1.000          0.957
+R1_RATE          0.764     0.990     0.842        0.731        0.708       0.868       0.990          0.758
+R2_HIST          0.712     0.992     0.763        0.807        0.816       0.910       0.992          0.930
+wrote results/sens_L128.csv
+ALLDONE
