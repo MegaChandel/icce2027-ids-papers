@@ -10,7 +10,7 @@ import itertools
 import pathlib
 import sys
 import time
-from multiprocessing import Pool
+import multiprocessing as mp
 
 import numpy as np
 import pandas as pd
@@ -18,7 +18,7 @@ from sklearn.metrics import average_precision_score, roc_auc_score
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from src.models import ALL, STOCHASTIC, TIMING, make  # noqa: E402
+from src.models import ALL, NEEDS_STATS, STOCHASTIC, TIMING, make  # noqa: E402
 from src.tokenize import build_vocab, make_xy, split  # noqa: E402
 
 SHARED = {"normal", "heartbeat", "ping", "request"}  # attack types present in OLD and NEW
@@ -59,10 +59,18 @@ def run_one(job):
         te_pairs = [p for p in te_pairs if p[1]["attack"] in keep]
     tr_segs = [s for s, _ in tr_pairs]
     vocab = build_vocab(tr_segs if vocab_mode == "train" else tr_segs + [s for s, _ in te_pairs])
-    tr = make_xy(tr_pairs, vocab, L, stride, with_dt=model in TIMING)
-    te = make_xy(te_pairs, vocab, L, stride, with_dt=model in TIMING)
+    kw = dict(with_dt=model in TIMING, with_stats=model in NEEDS_STATS)
+    tr = make_xy(tr_pairs, vocab, L, stride, **kw)
+    te = make_xy(te_pairs, vocab, L, stride, **kw)
+    tgt = None
+    if model == "DANN_LSTM":  # unlabelled windows of the target campaign's TRAIN split (no labels used)
+        tgt_camp = setting.split("->")[-1] if "->" in setting else setting.split("-")[1]
+        t_tr, _ = split({"HCRL": "OLD"}.get(tgt_camp, tgt_camp))
+        if keep is not None:
+            t_tr = [p for p in t_tr if p[1]["attack"] in keep]
+        tgt = make_xy(t_tr, vocab, L, stride)
     t0 = time.time()
-    det = make(model, len(vocab) + 1, seed=seed, epochs=epochs).fit(tr)
+    det = make(model, len(vocab) + 1, seed=seed, epochs=epochs, target_unlabeled=tgt).fit(tr)
     s = det.score(te)
     rows = []
     base = dict(setting=setting, vocab=vocab_mode, model=model, seed=seed, L=L, stride=stride,
@@ -96,7 +104,7 @@ def main():
             for sd in (range(args.seeds) if m in STOCHASTIC else [0])]
     print(f"{len(jobs)} jobs", flush=True)
     rows, t0 = [], time.time()
-    with Pool(args.procs) as pool:
+    with mp.get_context("spawn").Pool(args.procs) as pool:
         for i, r in enumerate(pool.imap_unordered(run_one, jobs), 1):
             rows += r
             if i % 10 == 0 or i == len(jobs):

@@ -21,7 +21,7 @@ email (placeholder)}}
 \maketitle
 
 \begin{abstract}
-Consumer and hobbyist drones are flown over MAVLink, an unauthenticated telemetry and command protocol. Intrusion detection systems that learn the sequence of MAVLink message identifiers report near-perfect accuracy, but every published evaluation trains and tests within a single capture campaign. We ask whether that accuracy survives the change of rig, software stack and mission that a deployed drone necessarily undergoes. We place three public MAVLink corpora, two hardware-in-the-loop campaigns from 2021 and 2022 and the 2025 SHADOW-GCS relay-attack corpus, under one shared tokenisation and evaluate four detector families against two trivial baselines. Supervised sequence models reach an AUC-ROC of \WithinSupMin{} within each HCRL campaign, yet transfer between the two campaigns gives \CrossHCRLSupMin--\CrossHCRLSupMax, and transfer to or from SHADOW-GCS gives \CrossShSupMin--\CrossShSupMax, often below chance. A one-line message-rate rule and a message-ID histogram transfer far better (\CrossShTrivMin--\CrossShTrivMax{} across stacks). The failures are explainable: the two HCRL campaigns differ as much in their normal traffic as one attack differs from normal; \OOVShMin--\OOVShMax\% of cross-stack test messages are out of vocabulary; and a heartbeat flood with no rate or histogram footprint is detected perfectly within its campaign only. A control shows that within-recording splits let supervised models separate two benign recordings (AUC \BenignBenignMin--\BenignBenignMax). We recommend campaign-held-out evaluation and trivial baselines for UAV intrusion detection.
+Consumer and hobbyist drones are flown over MAVLink, an unauthenticated telemetry and command protocol. Intrusion detection systems that learn the sequence of MAVLink message identifiers report near-perfect accuracy, but every published evaluation trains and tests within a single capture campaign. We ask whether that accuracy survives the change of rig, software stack and mission that a deployed drone necessarily undergoes. We place three public MAVLink corpora, two hardware-in-the-loop campaigns from 2021 and 2022 and the 2025 SHADOW-GCS relay-attack corpus, under one shared tokenisation and evaluate seven detector families, including a faithful re-implementation of the state-of-the-art GALAXY detector and a Transformer, against two trivial baselines. Supervised sequence models reach an AUC-ROC of \WithinSupMin{} within each HCRL campaign, yet transfer between the two campaigns gives \CrossHCRLSupMin--\CrossHCRLSupMax, and transfer to or from SHADOW-GCS gives \CrossShSupMin--\CrossShSupMax, often below chance. A one-line message-rate rule and a message-ID histogram transfer far better (\CrossShTrivMin--\CrossShTrivMax{} across stacks). The failures are explainable: the two HCRL campaigns differ as much in their normal traffic as one attack differs from normal; \OOVShMin--\OOVShMax\% of cross-stack test messages are out of vocabulary; and a heartbeat flood with no rate or histogram footprint is detected perfectly within its campaign only. A control shows that within-recording splits let supervised models separate two benign recordings (AUC \BenignBenignMin--\BenignBenignMax). Domain-adversarial training narrows the gap only partly, whereas calibrating a one-class detector on just 15\,s of benign traffic from the new campaign restores within-campaign accuracy in every transfer direction. We recommend campaign-held-out evaluation, trivial baselines and few-second target calibration for UAV intrusion detection.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -38,6 +38,7 @@ We run the first cross-campaign evaluation of MAVLink message-sequence IDS. Our 
 \item A shared tokenisation of three public MAVLink corpora (two HCRL campaigns with the \emph{same} three flooding attacks, plus SHADOW-GCS), which allows transfer to be tested with the attack held fixed.
 \item A transfer matrix for four detector families and two trivial baselines: within-campaign scores of \WithinSupMin{} fall to \CrossHCRLSupMin--\CrossHCRLSupMax{} between campaigns and below chance across stacks, where trivial rules hold up.
 \item A model-free explanation of the gap (campaign shift, out-of-vocabulary messages, attacks without a footprint) and a recording-identity control showing that within-recording splits inflate supervised scores.
+\item A deployment fix: few-second target calibration of one-class detectors, which closes the cross-campaign gap where domain-adversarial training does not.
 \end{itemize}
 
 \section{Related Work}
@@ -71,7 +72,7 @@ The OLD vocabulary is a strict subset of NEW. SHADOW-GCS shares only \SharedOldS
 
 \textbf{Splits and settings.} OLD has two files per class: file~1 trains, file~2 tests. NEW has one file per class: the first 80\% trains and the last 20\% tests. SHADOW is split by file within each scenario and class, as in~\cite{lee2025galaxy}. A cross setting A$\to$B trains on all of A and tests on \emph{the same test split} as within-B, so within and cross scores are directly comparable. HCRL settings use only the three shared attacks.
 
-\textbf{Detectors.} M1: two-layer LSTM classifier over 32-d embeddings (the MUVIDS/GALAXY family). M2: 1D-CNN. M3: one-class LSTM autoencoder trained on normal windows only. M4: unigram and bigram frequencies with logistic regression. Two trivial baselines are fitted on normal training windows only. \emph{Rate} scores the absolute log-ratio of a window's duration to the normal median; \emph{Histogram} scores the L1 distance of a window's message-ID histogram to the mean normal histogram. Neural models are trained for 5 epochs (Adam, $10^{-3}$, class-weighted) over 5 seeds. We report window AUC-ROC (mean over seeds).
+\textbf{Detectors.} M1: two-layer LSTM classifier over 32-d embeddings (the MUVIDS/GALAXY family). M2: 1D-CNN. M3: one-class LSTM autoencoder trained on normal windows only. M4: unigram and bigram frequencies with logistic regression. GALAXY$^\dagger$: our re-implementation of~\cite{lee2025galaxy} with its published hyper-parameters (single 128-unit LSTM; additive attention whose query is computed from message-ID entropy and mean inter-arrival time over the previous 30 messages; RMSprop, $10^{-4}$, batch 64), at our window of 32 and at its own sequence length of 128. Transformer: two-layer encoder with a classification token. These GPU models are trained for 10 epochs over 3 seeds on an NVIDIA L4. Two trivial baselines are fitted on normal training windows only. \emph{Rate} scores the absolute log-ratio of a window's duration to the normal median; \emph{Histogram} scores the L1 distance of a window's message-ID histogram to the mean normal histogram. Neural models are trained for 5 epochs (Adam, $10^{-3}$, class-weighted) over 5 seeds. We report window AUC-ROC (mean over seeds).
 
 \section{Results}
 Figure~\ref{fig:matrix} shows the transfer matrix (standard deviations in Table~\ref{tab:matrix}).
@@ -85,7 +86,7 @@ Figure~\ref{fig:matrix} shows the transfer matrix (standard deviations in Table~
 
 \begin{table*}[t]
 \centering
-\caption{Transfer matrix: window AUC-ROC, mean $\pm$ s.d.\ over 5 seeds for neural models (deterministic otherwise). O = OLD, N = NEW, S = SHADOW, H = OLD+NEW.}
+\caption{Transfer matrix: window AUC-ROC, mean $\pm$ s.d.\ over seeds (5 for LSTM/CNN/AE, 3 for GALAXY$^\dagger$ and Transformer; others deterministic). O = OLD, N = NEW, S = SHADOW, H = OLD+NEW. $^\dagger$Re-implementation.}
 \label{tab:matrix}
 \footnotesize
 \begin{tabular}{@{}lcccccccc@{}}
@@ -98,6 +99,8 @@ Detector & W-OLD & W-NEW & O$\to$N & N$\to$O & W-SH & H$\to$S & S$\to$O & S$\to$
 \end{table*}
 
 \textbf{Between the two HCRL campaigns.} Within each campaign the supervised models score \WithinSupMin. With the attack types unchanged and the vocabulary almost unchanged (\OOVOtoN\% OOV for OLD$\to$NEW), transfer drops them to \CrossHCRLSupMin--\CrossHCRLSupMax; the LSTM loses \GapOtoNLSTM{} and \GapNtoOLSTM{} AUC in the two directions. The trivial rate rule scores \RateNtoO{} from NEW to OLD, against \LSTMNtoO{} for the LSTM.
+
+\textbf{State-of-the-art models do not escape.} Our GALAXY$^\dagger$ reaches \GalWSh{} within SHADOW-GCS, consistent with its strong in-dataset results in~\cite{lee2025galaxy}, yet transfers at \GalCrossMin--\GalCrossMax; its own sequence length of 128 does not change this (best cross-campaign AUC \GalLCrossMax). The Transformer transfers no better (at most \TFCrossMax).
 
 \textbf{Across stacks.} Within SHADOW-GCS the supervised models reach \WithinShadowSupMin--\WithinShadowSupMax. Transfer to or from HCRL gives \CrossShSupMin--\CrossShSupMax, mostly \emph{below chance}: a model that learned ``attack = more messages'' from floods meets a relay that \emph{drops} messages and inverts its ranking. Rate and histogram, which score distance from normal in either direction, keep \CrossShTrivMin--\CrossShTrivMax.
 
@@ -158,12 +161,32 @@ Detector & HB & P & R & HB & P & R \\
 \label{fig:sens}
 \end{figure}
 
+\section{Closing the Gap}
+\textbf{Domain-adversarial training.} A domain-adversarial LSTM (DANN~\cite{ganin2016}: gradient reversal on a campaign classifier, using unlabelled windows of the target campaign's training split) improves the LSTM from \LstmNtoO{} to \DannNtoO{} (NEW$\to$OLD), from \LstmOtoN{} to \DannOtoN{} (OLD$\to$NEW) and from \LstmStoO{} to \DannStoO{} (SHADOW$\to$OLD), but stays far from within-campaign accuracy (Table~\ref{tab:adapt}).
+
+\textbf{Few-second target calibration.} A deployed drone can usually assume that its first seconds of operation in a new setting are benign. We therefore fit the one-class Histogram detector on only the first $N$ seconds of benign traffic of each target training file, with no source data and no labels. With $N=15$\,s it matches its own within-campaign accuracy in every direction (Table~\ref{tab:adapt}); HCRL$\to$SHADOW, for example, rises from \AdHistHtoSsrc{} to \AdHistHtoSfifteen. The rate rule (SHADOW$\to$OLD \AdRateStoOsrc{} to \AdRateStoOfifteen) and the LSTM autoencoder (\AdAEStoOsrc{} to \AdAEStoOfifteen) benefit as well, although the autoencoder fitted on SHADOW-GCS calibration traffic alone stays poor (at most \AdAEHtoStarget): the simplest detector is also the most sample-efficient.
+
+\begin{table}[t]
+\centering
+\caption{Closing the gap: window AUC-ROC on the target test split. Hist = Histogram detector fitted on source normal traffic, or only on the first 15\,s / 60\,s of target benign traffic; last column = Hist within the target campaign.}
+\label{tab:adapt}
+\scriptsize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}lcccccc@{}}
+\toprule
+Setting & LSTM & DANN & Hist (src) & Hist (15\,s) & Hist (60\,s) & Hist (within) \\
+\midrule
+\tabinput{gen/paper_table_adapt.tex}
+\bottomrule
+\end{tabular}
+\end{table}
+
 \section{Discussion and Conclusion}
-\textbf{Recommendations.} (i) Evaluate MAVLink IDS with at least one held-out campaign, not only held-out files or attacks. (ii) Report trivial rate and histogram baselines: across stacks they beat every learned model we tested. (iii) Avoid within-recording splits, or report a benign-versus-benign control alongside them. (iv) Report per-attack results, since an aggregate can hide an attack, such as NEW's heartbeat flood, that has no footprint.
+\textbf{Recommendations.} (i) Evaluate MAVLink IDS with at least one held-out campaign, not only held-out files or attacks. (ii) Report trivial rate and histogram baselines: across stacks they beat every learned model we tested. (iii) Avoid within-recording splits, or report a benign-versus-benign control alongside them. (iv) Report per-attack results, since an aggregate can hide an attack, such as NEW's heartbeat flood, that has no footprint. (v) In deployment, calibrate on a few seconds of benign traffic from the new setting rather than relying on a detector trained elsewhere.
 
-\textbf{Limitations.} Only three campaigns exist publicly, two from one laboratory and all simulated (HITL or SITL), and labels are per file. The HCRL$\leftrightarrow$SHADOW settings also change the attack (flood versus relay), so they mix campaign and attack shift. The OLD$\leftrightarrow$NEW settings hold the attack fixed and isolate campaign shift. Our models are re-implementations of the published families, not the original code.
+\textbf{Limitations.} Only three campaigns exist publicly, two from one laboratory and all simulated (HITL or SITL), and labels are per file. The HCRL$\leftrightarrow$SHADOW settings also change the attack (flood versus relay), so they mix campaign and attack shift. The OLD$\leftrightarrow$NEW settings hold the attack fixed and isolate campaign shift. Our models, including GALAXY$^\dagger$, are re-implementations from the published descriptions, not the original code. Target calibration assumes the first seconds in a new setting are attack-free; an attacker already present at take-off would defeat it.
 
-\textbf{Conclusion.} Near-perfect within-campaign accuracy of MAVLink message-sequence IDS does not survive a change of campaign. The loss is largest exactly where it matters for consumer drones, a different autopilot stack, and simple distance-from-normal rules degrade far less. Multi-campaign benchmarks, ideally with real flights, are needed before such detectors can be trusted in deployment.
+\textbf{Conclusion.} Near-perfect within-campaign accuracy of MAVLink message-sequence IDS does not survive a change of campaign. The loss is largest exactly where it matters for consumer drones, a different autopilot stack, and simple distance-from-normal rules degrade far less. Fifteen seconds of benign traffic from the new setting suffice to recover within-campaign accuracy. Multi-campaign benchmarks, ideally with real flights, are needed before such detectors can be trusted in deployment.
 
 \section*{Acknowledgment}
 [Funding.] Generative AI disclosure: Claude (Anthropic) was used to assist with code implementation, data analysis and drafting; the authors verified all code, numbers and citations and take full responsibility for the content.
@@ -181,6 +204,7 @@ Detector & HB & P & R & HB & P & R \\
 \bibitem{koltai2026} B.~Koltai, G.~Acs, and A.~Gazdag, ``CAN we trust your results? A cross-dataset study of automotive IDS evaluation,'' arXiv:2606.30430, 2026.
 \bibitem{cantone2024} M.~Cantone, C.~Marrocco, and A.~Bria, ``On the cross-dataset generalization of machine learning for network intrusion detection,'' \emph{IEEE Access}, vol.~12, pp.~144489--144508, 2024.
 \bibitem{shulman2026} D.~Shulman, ``How much do RF drone benchmarks overstate? A controlled study and theory of data leakage in UAV signal identification,'' arXiv:2607.01025, 2026.
+\bibitem{ganin2016} Y.~Ganin, E.~Ustinova, H.~Ajakan, P.~Germain, H.~Larochelle, F.~Laviolette, M.~Marchand, and V.~Lempitsky, ``Domain-adversarial training of neural networks,'' \emph{J. Mach. Learn. Res.}, vol.~17, pp.~1--35, 2016.
 \end{thebibliography}
 
 \end{document}

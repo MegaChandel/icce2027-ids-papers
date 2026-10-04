@@ -206,3 +206,158 @@ def make(name, vocab_size, seed=0, epochs=5):
 STOCHASTIC = {"M1_LSTM", "M2_CNN", "M3_AE", "M1_LSTM+dt", "M1_LSTM+dtz"}
 TIMING = {"M1_LSTM+dt", "M1_LSTM+dtz"}
 ALL = ["M1_LSTM", "M2_CNN", "M3_AE", "M4_NGRAM", "R1_RATE", "R2_HIST"]
+
+
+# --------------------------------------------------------------------------------------------
+# GPU models added for the extended study: faithful GALAXY, a Transformer encoder, and DANN.
+DEV = "cuda" if torch.cuda.is_available() else "cpu"
+
+
+class _Galaxy(nn.Module):
+    """GALAXY (Lee & Kim, PRDC 2025, Sec. V-D, Table VI): embedding 32 -> single LSTM (128) ->
+    additive attention whose query q_t = tanh(W_q s_t + b_q) comes from local statistics
+    s_t = [message-ID entropy, mean inter-arrival] over the preceding 30 messages;
+    e_t = v^T tanh(h_t + q_t) + b; alpha = softmax(e); c = sum alpha_t h_t ->
+    dense 128 (ReLU) -> dropout 0.3 -> sigmoid."""
+
+    def __init__(self, V, emb=32, hid=128):
+        super().__init__()
+        self.emb = nn.Embedding(V, emb)
+        self.lstm = nn.LSTM(emb, hid, batch_first=True)
+        self.q = nn.Linear(2, hid)
+        self.v = nn.Linear(hid, 1)
+        self.head = nn.Sequential(nn.Linear(hid, 128), nn.ReLU(), nn.Dropout(0.3), nn.Linear(128, 1))
+
+    def forward(self, x, st):
+        h, _ = self.lstm(self.emb(x))
+        e = self.v(torch.tanh(h + torch.tanh(self.q(st)))).squeeze(-1)
+        a = torch.softmax(e, 1)
+        return self.head((a.unsqueeze(-1) * h).sum(1)).squeeze(-1)
+
+
+class _TF(nn.Module):
+    def __init__(self, V, d=64, L=512):
+        super().__init__()
+        self.emb = nn.Embedding(V, d)
+        self.pos = nn.Parameter(torch.zeros(1, L + 1, d))
+        self.cls = nn.Parameter(torch.zeros(1, 1, d))
+        enc = nn.TransformerEncoderLayer(d, 4, 2 * d, dropout=0.1, batch_first=True, norm_first=True)
+        self.enc = nn.TransformerEncoder(enc, 2)
+        self.head = nn.Linear(d, 1)
+
+    def forward(self, x, st=None):
+        h = torch.cat([self.cls.expand(len(x), -1, -1), self.emb(x)], 1)
+        h = self.enc(h + self.pos[:, : h.shape[1]])
+        return self.head(h[:, 0]).squeeze(-1)
+
+
+class _GradRev(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, x, lam):
+        ctx.lam = lam
+        return x.view_as(x)
+
+    @staticmethod
+    def backward(ctx, g):
+        return -ctx.lam * g, None
+
+
+class _DANN(nn.Module):
+    """LSTM feature extractor with a label head and a campaign (domain) head behind a gradient
+    reversal layer (Ganin & Lempitsky, 2015)."""
+
+    def __init__(self, V, emb=32, hid=64):
+        super().__init__()
+        self.emb = nn.Embedding(V, emb)
+        self.lstm = nn.LSTM(emb, hid, num_layers=2, batch_first=True)
+        self.label = nn.Linear(hid, 1)
+        self.domain = nn.Sequential(nn.Linear(hid, 64), nn.ReLU(), nn.Linear(64, 1))
+
+    def features(self, x):
+        h, _ = self.lstm(self.emb(x))
+        return h[:, -1]
+
+    def forward(self, x, st=None):
+        return self.label(self.features(x)).squeeze(-1)
+
+
+class GPUDetector:
+    """Supervised GPU detector: GALAXY (paper hyper-parameters), TF, or DANN.
+    DANN additionally needs `target_unlabeled` (windows of the target campaign, no labels)."""
+
+    def __init__(self, kind, V, seed=0, epochs=10, target_unlabeled=None):
+        self.kind, self.V, self.seed, self.epochs = kind, V, seed, epochs
+        self.tgt = target_unlabeled
+        self.name = {"galaxy": "GALAXY", "tf": "TF", "dann": "DANN_LSTM"}[kind]
+
+    def _st(self, xy):
+        if self.kind != "galaxy":
+            return None
+        return torch.from_numpy(((xy["stats"] - self.st_mu) / self.st_sd).astype(np.float32))
+
+    def fit(self, tr):
+        torch.manual_seed(self.seed)
+        rng = np.random.default_rng(self.seed)
+        X, y = torch.from_numpy(tr["X"]), torch.from_numpy(tr["y"].astype(np.float32))
+        if self.kind == "galaxy":
+            self.st_mu = tr["stats"].reshape(-1, 2).mean(0)
+            self.st_sd = tr["stats"].reshape(-1, 2).std(0) + 1e-6
+            self.net = _Galaxy(self.V).to(DEV)
+            opt = torch.optim.RMSprop(self.net.parameters(), lr=1e-4)
+            bs, lossf = 64, nn.BCEWithLogitsLoss()
+        else:
+            self.net = (_TF(self.V, L=X.shape[1]) if self.kind == "tf" else _DANN(self.V)).to(DEV)
+            opt = torch.optim.AdamW(self.net.parameters(), lr=1e-3)
+            pw = torch.tensor((tr["y"] == 0).sum() / max((tr["y"] == 1).sum(), 1), device=DEV, dtype=torch.float32)
+            bs, lossf = 256, nn.BCEWithLogitsLoss(pos_weight=pw)
+        ST = self._st(tr)
+        T = torch.from_numpy(self.tgt["X"]) if self.kind == "dann" else None
+        steps = self.epochs * int(np.ceil(len(X) / bs))
+        step = 0
+        for _ in range(self.epochs):
+            self.net.train()
+            for b in np.array_split(rng.permutation(len(X)), int(np.ceil(len(X) / bs))):
+                xb = X[b].to(DEV)
+                if self.kind == "dann":
+                    lam = 2.0 / (1 + np.exp(-10 * step / steps)) - 1  # standard DANN schedule
+                    tb = T[rng.integers(0, len(T), len(b))].to(DEV)
+                    f_s, f_t = self.net.features(xb), self.net.features(tb)
+                    d = self.net.domain(_GradRev.apply(torch.cat([f_s, f_t]), lam)).squeeze(-1)
+                    dl = nn.functional.binary_cross_entropy_with_logits(
+                        d, torch.cat([torch.zeros(len(b)), torch.ones(len(b))]).to(DEV))
+                    loss = lossf(self.net.label(f_s).squeeze(-1), y[b].to(DEV)) + dl
+                else:
+                    out = self.net(xb, ST[b].to(DEV) if ST is not None else None)
+                    loss = lossf(out, y[b].to(DEV))
+                opt.zero_grad(set_to_none=True)
+                loss.backward()
+                opt.step()
+                step += 1
+        return self
+
+    @torch.no_grad()
+    def score(self, te):
+        self.net.eval()
+        X, ST = torch.from_numpy(te["X"]), self._st(te)
+        out = []
+        for i in range(0, len(X), 2048):
+            out.append(self.net(X[i:i + 2048].to(DEV),
+                                ST[i:i + 2048].to(DEV) if ST is not None else None).float().cpu())
+        return torch.cat(out).numpy()
+
+
+_make_cpu = make
+
+
+def make(name, vocab_size, seed=0, epochs=5, target_unlabeled=None):  # noqa: F811
+    if name == "GALAXY":
+        return GPUDetector("galaxy", vocab_size, seed, epochs=10)
+    if name == "TF":
+        return GPUDetector("tf", vocab_size, seed, epochs=10)
+    if name == "DANN_LSTM":
+        return GPUDetector("dann", vocab_size, seed, epochs=10, target_unlabeled=target_unlabeled)
+    return _make_cpu(name, vocab_size, seed, epochs)
+
+
+STOCHASTIC = STOCHASTIC | {"GALAXY", "TF", "DANN_LSTM"}
+NEEDS_STATS = {"GALAXY"}

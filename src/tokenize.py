@@ -34,7 +34,8 @@ def build_vocab(segments) -> dict[int, int]:
     return {m: i + 1 for i, m in enumerate(ids)}
 
 
-def windows(seg: Segment, vocab: dict[int, int], length: int, stride: int, with_dt: bool = False):
+def windows(seg: Segment, vocab: dict[int, int], length: int, stride: int, with_dt: bool = False,
+            with_stats: bool = False):
     """Returns (tokens int64[n, L], duration float[n], oov_rate float[n]) and, if with_dt,
     log inter-arrival times float32[n, L] (first step of each window uses the gap before it)."""
     df = frames(seg)
@@ -42,15 +43,37 @@ def windows(seg: Segment, vocab: dict[int, int], length: int, stride: int, with_
     t = df["t"].to_numpy()
     if len(tok) < length:
         empty = (np.zeros((0, length), np.int64), np.zeros(0), np.zeros(0))
-        return empty + ((np.zeros((0, length), np.float32),) if with_dt else ())
+        return empty + ((np.zeros((0, length), np.float32),) if with_dt else ()) + \
+            ((np.zeros((0, length, 2), np.float32),) if with_stats else ())
     starts = np.arange(0, len(tok) - length + 1, stride)
     idx = starts[:, None] + np.arange(length)[None, :]
     w = tok[idx]
     dur = t[starts + length - 1] - t[starts]
-    if not with_dt:
-        return w, dur, (w == OOV).mean(1)
-    gap = np.log(np.maximum(np.diff(t, prepend=t[0]), 1e-6)).astype(np.float32)
-    return w, dur, (w == OOV).mean(1), gap[idx]
+    extra = ()
+    if with_dt:
+        gap = np.log(np.maximum(np.diff(t, prepend=t[0]), 1e-6)).astype(np.float32)
+        extra += (gap[idx],)
+    if with_stats:
+        extra += (step_stats(tok, t, len(vocab) + 1)[idx],)
+    return (w, dur, (w == OOV).mean(1)) + extra
+
+
+def step_stats(tok: np.ndarray, t: np.ndarray, vocab_size: int, win: int = 30) -> np.ndarray:
+    """GALAXY's per-step statistics over the preceding `win` messages: Shannon entropy of the
+    message IDs and mean log inter-arrival time. Returns float32 [N, 2]."""
+    n = len(tok)
+    oh = np.zeros((n + 1, vocab_size), np.int32)
+    oh[np.arange(1, n + 1), tok] = 1
+    cum = oh.cumsum(0)
+    lo = np.maximum(np.arange(1, n + 1) - win, 0)
+    cnt = cum[1:] - cum[lo]
+    p = cnt / np.maximum(cnt.sum(1, keepdims=True), 1)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        ent = -(np.where(p > 0, p * np.log2(p), 0.0)).sum(1)
+    gap = np.log(np.maximum(np.diff(t, prepend=t[0]), 1e-6))
+    cg = np.concatenate([[0.0], np.cumsum(gap)])
+    mgap = (cg[1:] - cg[lo]) / np.maximum(np.arange(1, n + 1) - lo, 1)
+    return np.stack([ent, mgap], 1).astype(np.float32)
 
 
 def caps_by(campaign: str):
@@ -89,16 +112,19 @@ def split(campaign: str, test_frac: float = 0.2):
     return tr, te
 
 
-def make_xy(pairs, vocab, length, stride, attacks=None, with_dt=False):
+def make_xy(pairs, vocab, length, stride, attacks=None, with_dt=False, with_stats=False):
     """Stack windows of (segment, capture) pairs. `attacks` filters by attack type."""
-    X, D, O, T, y, a = [], [], [], [], [], []
+    X, D, O, T, ST, y, a = [], [], [], [], [], [], []
     for seg, c in pairs:
         if attacks is not None and c["attack"] not in attacks:
             continue
-        out = windows(seg, vocab, length, stride, with_dt)
+        out = windows(seg, vocab, length, stride, with_dt, with_stats)
         X.append(out[0]); D.append(out[1]); O.append(out[2])
+        k = 3
         if with_dt:
-            T.append(out[3])
+            T.append(out[k]); k += 1
+        if with_stats:
+            ST.append(out[k])
         y.append(np.full(len(out[0]), c["label"])); a += [c["attack"]] * len(out[0])
     if not X:
         return None
@@ -106,4 +132,6 @@ def make_xy(pairs, vocab, length, stride, attacks=None, with_dt=False):
               y=np.concatenate(y), attack=np.array(a))
     if with_dt:
         xy["dt"] = np.concatenate(T)
+    if with_stats:
+        xy["stats"] = np.concatenate(ST)
     return xy

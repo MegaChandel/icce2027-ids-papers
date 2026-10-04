@@ -15,7 +15,8 @@ SET_TEX = {"Within-OLD": "W-OLD", "Within-NEW": "W-NEW", "OLD->NEW": r"O$\to$N",
            "Within-SHADOW": "W-SH", "HCRL->SHADOW": r"H$\to$S", "SHADOW->OLD": r"S$\to$O",
            "SHADOW->NEW": r"S$\to$N"}
 MODELS = ["M1_LSTM", "M2_CNN", "M3_AE", "M4_NGRAM", "R1_RATE", "R2_HIST"]
-MOD_TEX = {"M1_LSTM": "LSTM", "M2_CNN": "1D-CNN", "M3_AE": "LSTM-AE", "M4_NGRAM": "n-gram LR",
+MOD_TEX = {"GALAXY": "GALAXY$^\\dagger$", "GALAXY128": "GALAXY$^\\dagger$ ($L$=128)", "TF": "Transformer",
+           "DANN_LSTM": "DANN-LSTM", "M1_LSTM": "LSTM", "M2_CNN": "1D-CNN", "M3_AE": "LSTM-AE", "M4_NGRAM": "n-gram LR",
            "R1_RATE": "Rate (trivial)", "R2_HIST": "Histogram (trivial)",
            "M1_LSTM+dt": "LSTM + $\\Delta t$", "M1_LSTM+dtz": "LSTM + $\\Delta t$ (z)"}
 
@@ -34,10 +35,10 @@ def matrix_table(df):
     v = df[(df.attack == "all") & (df.vocab == "train")]
     g = v.groupby(["model", "setting"])["auc_roc"].agg(["mean", "std"])
     lines = []
-    for m in MODELS:
-        stoch = m in ("M1_LSTM", "M2_CNN", "M3_AE")
+    for m in [x for x in ["GALAXY", "GALAXY128", "TF"] if x in g.index.get_level_values(0)] + MODELS:
+        stoch = m in ("M1_LSTM", "M2_CNN", "M3_AE", "GALAXY", "GALAXY128", "TF")
         cells = [cell(g.loc[(m, s), "mean"], g.loc[(m, s), "std"], stoch) for s in SETTINGS]
-        if m == "R1_RATE":
+        if m in ("M1_LSTM", "R1_RATE"):
             lines.append(r"\midrule")
         lines.append(" & ".join([MOD_TEX[m]] + cells) + r" \\")
     (OUT / "paper_table_matrix.tex").write_text("\n".join(lines) + "\n")
@@ -135,6 +136,31 @@ def numbers(df, mean):
             ids |= set(load(c["name"]).msgid.unique().tolist())
         m[f"Vocab{key}"] = len(ids)
         m[f"Files{key}"] = len(cs)
+    if (R / "matrix_gpu.csv").exists():
+        gp = pd.read_csv(R / "matrix_gpu.csv")
+        gp = gp[gp.attack == "all"].groupby(["model", "setting"])["auc_roc"].mean()
+        cross = ["OLD->NEW", "NEW->OLD", "HCRL->SHADOW", "SHADOW->OLD", "SHADOW->NEW"]
+        m["GalWSh"] = f"{gp[('GALAXY', 'Within-SHADOW')]:.3f}"
+        m["GalCrossMin"] = f"{min(gp[('GALAXY', c)] for c in cross):.2f}"
+        m["GalCrossMax"] = f"{max(gp[('GALAXY', c)] for c in cross):.2f}"
+        m["TFCrossMax"] = f"{max(gp[('TF', c)] for c in cross):.2f}"
+        for c, k in (("NEW->OLD", "NtoO"), ("OLD->NEW", "OtoN"), ("SHADOW->OLD", "StoO"), ("HCRL->SHADOW", "HtoS")):
+            m[f"Dann{k}"] = f"{gp[('DANN_LSTM', c)]:.2f}"
+            m[f"Lstm{k}"] = f"{mean.loc['M1_LSTM', c]:.2f}"
+    if (R / "matrix_galaxy128.csv").exists():
+        g1 = pd.read_csv(R / "matrix_galaxy128.csv")
+        g1 = g1[g1.attack == "all"].groupby("setting")["auc_roc"].mean()
+        m["GalLWSh"] = f"{g1['Within-SHADOW']:.2f}"
+        m["GalLCrossMax"] = f"{max(g1[c] for c in ['OLD->NEW', 'NEW->OLD', 'HCRL->SHADOW', 'SHADOW->OLD', 'SHADOW->NEW']):.2f}"
+    if (R / "adapt.csv").exists():
+        ad = pd.read_csv(R / "adapt.csv").groupby(["setting", "model", "mode", "N_s"])["auc_roc"].mean()
+        m["AdHistHtoSsrc"] = f"{ad[('HCRL->SHADOW', 'R2_HIST', 'source', 0)]:.2f}"
+        m["AdHistHtoSfifteen"] = f"{ad[('HCRL->SHADOW', 'R2_HIST', 'target', 15)]:.2f}"
+        m["AdRateStoOsrc"] = f"{ad[('SHADOW->OLD', 'R1_RATE', 'source', 0)]:.2f}"
+        m["AdRateStoOfifteen"] = f"{ad[('SHADOW->OLD', 'R1_RATE', 'target', 15)]:.2f}"
+        m["AdAEStoOsrc"] = f"{ad[('SHADOW->OLD', 'M3_AE', 'source', 0)]:.2f}"
+        m["AdAEStoOfifteen"] = f"{ad[('SHADOW->OLD', 'M3_AE', 'target', 15)]:.2f}"
+        m["AdAEHtoStarget"] = f"{max(ad[('HCRL->SHADOW', 'M3_AE', 'target', n)] for n in (15, 30, 60, 120)):.2f}"
     voc = {}
     for camp in ("OLD", "NEW", "SHADOW"):
         voc[camp] = set()
@@ -153,11 +179,38 @@ def numbers(df, mean):
     print(tex)
 
 
+def adapt_table():
+    """Proposed fix vs DANN: AUC on each cross setting."""
+    a = pd.read_csv(R / "adapt.csv").groupby(["setting", "model", "mode", "N_s"])["auc_roc"].mean()
+    mx = pd.read_csv(R / "matrix.csv")
+    within = mx[(mx.attack == "all") & (mx.vocab == "train")].groupby(["model", "setting"])["auc_roc"].mean()
+    gpu = pd.read_csv(R / "matrix_gpu.csv")
+    gpu = gpu[gpu.attack == "all"].groupby(["model", "setting"])["auc_roc"].mean()
+    wmap = {"OLD->NEW": "Within-NEW", "NEW->OLD": "Within-OLD", "HCRL->SHADOW": "Within-SHADOW",
+            "SHADOW->OLD": "Within-OLD", "SHADOW->NEW": "Within-NEW"}
+    lines = []
+    for st in ["OLD->NEW", "NEW->OLD", "HCRL->SHADOW", "SHADOW->OLD", "SHADOW->NEW"]:
+        # one pre-specified one-class detector (Histogram); no selection on test results
+        best_src = a[(st, "R2_HIST", "source", 0)]
+        best15 = a[(st, "R2_HIST", "target", 15)]
+        best60 = a[(st, "R2_HIST", "target", 60)]
+        w = within[("R2_HIST", wmap[st])]
+        lstm, dann = within[("M1_LSTM", st)], gpu[("DANN_LSTM", st)]
+        lines.append(f"{SET_TEX[st]} & {lstm:.2f} & {dann:.2f} & {best_src:.2f} & \\textbf{{{best15:.2f}}} & {best60:.2f} & {w:.2f} \\\\")
+    (OUT / "paper_table_adapt.tex").write_text("\n".join(lines) + "\n")
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     df = pd.read_csv(R / "matrix.csv")
-    mean = matrix_table(df)
-    print(mean.round(2).to_string())
+    extra = [pd.read_csv(R / f) for f in ("matrix_gpu.csv",) if (R / f).exists()]
+    if (R / "matrix_galaxy128.csv").exists():
+        g = pd.read_csv(R / "matrix_galaxy128.csv"); g["model"] = "GALAXY128"; g["vocab"] = "train"; extra.append(g)
+    df_all = pd.concat([df] + [e.assign(vocab=e.get("vocab", "train")) for e in extra], ignore_index=True)
+    mean_all = matrix_table(df_all)
+    mean = mean_all.loc[MODELS]
+    print(mean_all.round(2).to_string())
+    adapt_table()
     attack_table(df)
     ablation_table()
     numbers(df, mean)
