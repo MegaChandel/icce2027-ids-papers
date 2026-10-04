@@ -203,8 +203,61 @@ def paper_table_construction():
     print("\n".join(lines))
 
 
+def deep_section():
+    """Per-ID table (ROAD / ROAD-IR / benign TWIN) and macros for the deep-model section."""
+    import glob
+    m = {}
+    t2 = pd.read_csv(R / "t2_perid.csv").groupby(["attack_type", "variant"])["auc_roc"].mean()
+    sup = pd.read_csv(R / "deep_sup.csv")
+    sup = sup.groupby(["attack_type", "variant", "seed"])["auc_roc"].mean().groupby(["attack_type", "variant"]).mean()
+    cs = pd.concat([pd.read_csv(f) for f in sorted(glob.glob(str(R / "ctx_scoring_*.csv")))], ignore_index=True)
+    per = cs[cs.rule == "perid_tail"]
+    ctx = per[per["mode"] == "ctx"].groupby(["attack_type", "variant", "seed"])["auc_roc"].mean()
+    ctx_sd = ctx.groupby(["attack_type", "variant"]).std()
+    ctx = ctx.groupby(["attack_type", "variant"]).mean()
+    pae = per[per["mode"] == "pae"].groupby(["attack_type", "variant"])["auc_roc"].mean() if (per["mode"] == "pae").any() else None
+    lines = []
+    for a in TYPE_ORDER:
+        cells = []
+        for v in ("ROAD", "ROAD-IR", "TWIN"):
+            vals = [t2[(a, v)], sup[(a, v)], pae[(a, v)] if pae is not None else np.nan, ctx[(a, v)]]
+            cells += ["--" if np.isnan(x) else (rf"\textbf{{{x:.2f}}}" if (v != "TWIN" and x >= 0.95) else f"{x:.2f}") for x in vals]
+        lines.append(f"{PRETTY[a]} & " + " & ".join(cells) + r" \\")
+    (OUT / "paper_table_deep.tex").write_text("\n".join(lines) + "\n")
+    n_seeds = per[per["mode"] == "ctx"].seed.nunique()
+    m["CtxSeeds"] = n_seeds
+    m["CtxRoadMin"] = f"{min(ctx[(a, 'ROAD')] for a in TYPE_ORDER):.2f}"
+    m["CtxIRMin"] = f"{min(ctx[(a, 'ROAD-IR')] for a in TYPE_ORDER):.2f}"
+    m["CtxRlMin"] = f"{min(ctx[(a, 'ROAD')] for a in TYPE_ORDER[3:]):.2f}"
+    m["CtxTwinMin"] = f"{min(ctx[(a, 'TWIN')] for a in TYPE_ORDER):.2f}"
+    m["CtxTwinMax"] = f"{max(ctx[(a, 'TWIN')] for a in TYPE_ORDER):.2f}"
+    m["CtxSdMax"] = f"{np.nanmax(ctx_sd.values):.2f}" if n_seeds > 1 else "--"
+    m["TtwoIRMax"] = f"{max(t2[(a, 'ROAD-IR')] for a in TYPE_ORDER[:3]):.2f}"
+    m["SupRoadMin"] = f"{min(sup[(a, 'ROAD')] for a in TYPE_ORDER):.2f}"
+    m["SupRoadMax"] = f"{max(sup[(a, 'ROAD')] for a in TYPE_ORDER):.2f}"
+    tw = sorted(sup[(a, "TWIN")] for a in TYPE_ORDER)
+    m["SupTwinHiN"] = sum(x >= 0.7 for x in tw)
+    m["SupTwinHiMin"] = f"{min(x for x in tw if x >= 0.7):.2f}"
+    m["SupTwinMax"] = f"{max(tw):.2f}"
+    m["SupRlOffTwin"] = f"{sup[('reverse_light_off_attack', 'TWIN')]:.2f}"
+    m["SupRlOffRoad"] = f"{sup[('reverse_light_off_attack', 'ROAD')]:.2f}"
+    if pae is not None:
+        m["PaeRlMax"] = f"{max(pae[(a, 'ROAD')] for a in TYPE_ORDER[3:]):.2f}"
+        m["PaeIRMin"] = f"{min(pae[(a, 'ROAD-IR')] for a in TYPE_ORDER[:3]):.2f}"
+        m["PaeIRMax"] = f"{max(pae[(a, 'ROAD-IR')] for a in TYPE_ORDER[:3]):.2f}"
+    tpr = per[(per["mode"] == "ctx") & (per.variant == "ROAD")].groupby("attack_type")["det_rate_at_1pct_fpr"].mean()
+    m["CtxTprSC"] = f"{min(tpr['max_speedometer_attack'], tpr['correlated_signal_attack']) * 100:.0f}"
+    bus = cs[(cs.rule == "bus_calib") & (cs["mode"] == "ctx") & (cs.variant == "ROAD")].groupby("attack_type")["auc_roc"].mean()
+    m["BusMax"] = f"{bus.max():.2f}"
+    tex = "\n".join(rf"\newcommand{{\{k}}}{{{v}}}" for k, v in m.items()) + "\n"
+    (OUT / "numbers_deep.tex").write_text(tex)
+    print(tex)
+
+
 def main():
     paper_table_construction()
+    if (R / "deep_sup.csv").exists() and (R / "t2_perid.csv").exists():
+        deep_section()
     floor = pd.read_csv(R / "floor.csv")
     quoted = pd.read_csv(ROOT / "data/published/moriano2024_table2.csv", comment="#")
     write(table2(floor), "table2_floor")

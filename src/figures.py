@@ -198,7 +198,40 @@ def main():
         fig3_sensitivity()
     fig4_byte_heatmap()
     fig5_timeseries()
+    fig6_context_vs_twin()
     print("figures written to", F)
+
+
+
+def fig6_context_vs_twin(seed=0, name="reverse_light_on_attack_1_masquerade"):
+    """Per-ID context score of the attacked AID: real attack vs its benign twin."""
+    import sys
+    sys.path.insert(0, str(ROOT / "experiments"))
+    from ctx_scoring import Tail, per_aid_max
+    from . import busstate
+    from .evaluate import make_windows, window_scores
+    d = ROOT / f"results/nll/ctx_s{seed}"
+    if not (d / "val.npy").exists():
+        return
+    T = Tail(np.load(d / "val.npy"))
+    aids = list(np.load(busstate.INTERIM / "bus_aids.npy"))
+    caps = {c["name"]: c for c in load_captures_cfg()["attacks"]}
+    c = caps[name]
+    ai = aids.index(c["target_aid"])
+    fig, axs = plt.subplots(2, 1, figsize=(COL, 2.3), sharex=True, sharey=True, gridspec_kw={"hspace": 0.35})
+    for ax, suf, title in ((axs[0], "", "Reverse light on (masquerade)"), (axs[1], "__TWIN", "Same drive, attack frames removed (benign twin)")):
+        nll = np.load(d / f"{name}{suf}.npy"); ty = np.load(d / f"{name}{suf}.ty.npz")
+        s = per_aid_max(T.tail(nll), T.keep, len(aids))[:, ai]
+        w = make_windows(0, float(ty["t"][-1]), 1.0, 0.25)
+        ws = window_scores(ty["t"], s, w, "mean")
+        ax.axvspan(c["interval_start_s"], c["interval_end_s"], color=C[1], alpha=0.15, lw=0)
+        ax.plot(w.mean(1), ws, color=C[0], lw=1.0)
+        ax.set_title(title, loc="left", fontsize=6.5, color=INK, pad=2)
+        ax.set_ylabel("context score", fontsize=6.5)
+        _axes(ax)
+    axs[-1].set_xlabel("Time (s); shaded = labelled injection interval")
+    fig.savefig(F / "fig6_context_twin.pdf"); fig.savefig(F / "fig6_context_twin.png", dpi=200)
+    plt.close(fig)
 
 
 if __name__ == "__main__":

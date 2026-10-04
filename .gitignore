@@ -5,3 +5,5 @@ __pycache__/
 .pytest_cache/
 paper/gen/
 paper/*.log
+results/models/
+results/nll/

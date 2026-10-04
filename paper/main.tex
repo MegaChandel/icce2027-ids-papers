@@ -9,12 +9,13 @@
 \usepackage{tikz}
 \usetikzlibrary{positioning,arrows.meta,shapes.geometric,fit,backgrounds}
 \input{gen/numbers.tex}
+\input{gen/numbers_deep.tex}
 \makeatletter\newcommand{\tabinput}[1]{\@@input #1 }\makeatother
 \newcommand{\Tone}{T1}\newcommand{\Ttwo}{T2}\newcommand{\Tthree}{T3}\newcommand{\Tfour}{T4}
 
 \begin{document}
 
-\title{How Much of the ROAD Masquerade Benchmark\\Is a Payload Shortcut?}
+\title{Two Shortcuts in the ROAD Masquerade Benchmark\\and How Context Consistency Avoids Them}
 
 \author{\IEEEauthorblockN{Author Name(s) (placeholder)}
 \IEEEauthorblockA{Department, Institution (placeholder)\\
@@ -24,7 +25,7 @@ email (placeholder)}}
 \maketitle
 
 \begin{abstract}
-Masquerade attacks, in which a compromised node silences a legitimate electronic control unit and transmits in its place at the correct rate, are regarded as the hardest attack class for in-vehicle Controller Area Network (CAN) intrusion detection because they leave message timing unchanged. The ROAD dataset supplies the community's reference masquerade captures. Those captures, however, are not recorded attacks: they are produced by deleting the victim's frames from the corresponding fabrication captures, which leaves the injected payloads untouched. We ask how much of the benchmark a rule with no learning can solve. Using four trivial detectors fitted only on attack-free traffic, we establish a payload-level difficulty floor for all 13 ROAD masquerade captures across five attack types. A per-identifier byte-range check reaches a window AUC-ROC of \ExtAUCmin{} on \NExtCaps{} captures (max speedometer, max coolant temperature, correlated signal) and detects \SCTPRmin--\SCTPRmax\% of attack windows at a 1\% false-positive rate on the speedometer and correlated-signal captures. On these three attack types, published unsupervised masquerade detectors score at or below this floor even when their window parameters are tuned on the test captures (delta-over-trivial \DeltaExtMin{} to \DeltaExtMax{}). Only the \NRlCaps{} reverse-light captures, which inject a legitimate state value at the wrong moment, resist every trivial rule (AUC \RlAUCmin--\RlAUCmax{}). We trace the shortcut byte by byte to values that never occur in ambient traffic. On the independently simulated CrySyS corpus, whose payloads stay in range, the same rules fall to chance (AUC \CryMasqAUC), so the shortcut is a property of ROAD's construction rather than of masquerade detection. We recommend that CAN intrusion detection papers report per-attack performance relative to a trivial floor. Code and the floor table are released.
+Masquerade attacks, in which a compromised node silences an electronic control unit and transmits in its place at the correct rate, are the hardest attack class for in-vehicle CAN intrusion detection, and the ROAD dataset is their reference benchmark. ROAD's masquerade captures are simulated by deleting the victim's frames from fabrication captures. We show that this construction leaves two shortcuts. First, a payload shortcut: a per-identifier byte-range rule fitted on attack-free traffic reaches AUC-ROC \ExtAUCmin{} on \NExtCaps{} of the 13 captures, at or above every published unsupervised detector on those attack types. Second, a driving-phase shortcut: supervised deep classifiers learn the scripted manoeuvre that coincides with each attack. On \emph{benign twins}, the same drives with every injected frame removed, they still flag the attack interval (AUC up to \SupTwinMax). We release two counterfactual tests that expose these shortcuts: ROAD-IR, which clamps injected values into their normal range, and the benign twins. We then propose a context-consistency Transformer trained only on attack-free traffic that predicts each identifier's payload from the rest of the bus. As a per-identifier detector it reaches AUC \CtxRoadMin--1.00 on all five attack types, including the reverse-light attacks that defeat every trivial rule. It keeps \CtxIRMin{} or more on ROAD-IR, where the range rule falls to chance, and stays near chance on the benign twins. An identical model without cross-identifier context does not. A cross-corpus check on CrySyS confirms that the payload shortcut is specific to ROAD's construction.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -38,18 +39,17 @@ Within ROAD, the \emph{masquerade} captures are the reference hard case. A masqu
 
 The ROAD authors state, however, that the masquerade captures are \emph{simulated}: they were produced from the fabrication captures by deleting the legitimate frames of the target identifier~\cite{verma2024}. The injected frames themselves are unchanged, and the fabrication attacks inject extreme values (maximum speedometer, maximum coolant temperature). A rule as simple as ``this byte never took this value in normal traffic'' might therefore detect several masquerade captures. If so, scores on the benchmark measure less than the field assumes.
 
-This paper measures that floor. We fit four trivial payload detectors on ROAD's ambient captures only and score all 13 masquerade captures. Our contributions are:
+This paper measures that floor, finds a second shortcut that fools learned detectors, and proposes a detector that avoids both. Our contributions are:
 \begin{itemize}
-\item The first payload-level trivial-baseline floor for the ROAD masquerade captures, connected to the frame-deletion procedure by which they were built (Sections~\ref{sec:construction}--\ref{sec:results}).
-\item Evidence that three of the five masquerade attack types are solved by a per-identifier byte-range check, and that published unsupervised masquerade detectors~\cite{moriano2026jisa} score at or below this floor on them.
-\item A byte-level explanation of the shortcut, a cross-corpus check showing it is specific to ROAD's construction, and the identification of the reverse-light captures as the only part of ROAD that resists trivial rules.
-\item A recommendation, with released code, to report delta-over-trivial per attack type.
+\item A payload-level trivial floor for all 13 ROAD masquerade captures, traced byte by byte to the frame-deletion construction. On three of the five attack types it matches or beats published unsupervised detectors~\cite{moriano2026jisa}, and it falls to chance on the independently simulated CrySyS corpus (Sections~\ref{sec:construction}--\ref{sec:abl}).
+\item Two counterfactual tests, ROAD-IR (in-range payloads) and benign twins (no attack), which expose a second, driving-phase shortcut learned by supervised deep classifiers (Section~\ref{sec:cf}).
+\item A context-consistency Transformer, trained on attack-free traffic only, that detects every attack type, including the reverse-light attacks, and passes both counterfactual tests, together with the ablation showing that cross-identifier context is what makes it work.
 \end{itemize}
 
 \section{Background and Related Work}
 \textbf{Attacks.} In a \emph{fabrication} attack, injected frames are added beside the legitimate ones, roughly doubling the identifier's rate. In a \emph{masquerade} attack, the legitimate sender is silenced and only forged frames remain, so the rate is preserved~\cite{verma2024}.
 
-\textbf{Trivial baselines and benchmark audits.} Blevins et al.~\cite{blevins2021} benchmarked time-based IDS on ROAD and showed that simple timing statistics detect injection attacks well; masquerade attacks preserve timing and fall outside their scope. Heydari et al.~\cite{heydari2026} showed that frame-level classifiers on Car-Hacking and Survival exploit identifier shortcuts. Koltai et al.~\cite{koltai2026} found that single-dataset results do not predict cross-dataset performance. None of these establishes a payload-level floor for ROAD masquerade.
+\textbf{Trivial baselines and benchmark audits.} Blevins et al.~\cite{blevins2021} benchmarked time-based IDS on ROAD and showed that simple timing statistics detect injection attacks well; masquerade attacks preserve timing and fall outside their scope. Heydari et al.~\cite{heydari2026} showed that frame-level classifiers on Car-Hacking and Survival exploit identifier shortcuts. Koltai et al.~\cite{koltai2026} found that single-dataset results do not predict cross-dataset performance. None of these establishes a payload-level floor for ROAD masquerade or tests detectors with counterfactual data, a standard tool for exposing shortcut learning in deep networks~\cite{geirhos2020}.
 
 \textbf{Masquerade detectors on ROAD.} Moriano et al.~\cite{moriano2026jisa} benchmark four unsupervised online detectors on the ROAD masquerade captures, namely matrix-correlation distribution (MCD) and correlation (MCC), Ganesan17 (G17)~\cite{ganesan2017} and Moriano22 (M22)~\cite{moriano2022}, under a sliding-window AUC-ROC protocol. Later work applies graph machine learning~\cite{marfo2025}, state-space models~\cite{liu2026mids} and per-identifier residualisation~\cite{hegde2026}. Supervised comparisons~\cite{guerra2024} report near-perfect per-attack scores for an LSTM, and payload-based detectors such as CANdito~\cite{longari2022} model decoded signals. All report absolute scores; none states what a trivial rule achieves on the same captures. Table~\ref{tab:related} summarises the gap.
 
@@ -157,15 +157,6 @@ Capture & \Tone & \Ttwo & \Tthree & \Tfour & IF & TPR@1\% \\
 \label{fig:bytes}
 \end{figure}
 
-Figure~\ref{fig:ts} shows the same effect over time: the share of flagged frames steps up exactly over the injection interval for the speedometer and correlated-signal attacks and does not move for reverse light.
-
-\begin{figure}[t]
-\centering
-\includegraphics[width=\columnwidth]{gen/fig5_timeseries.pdf}
-\caption{Share of frames flagged by \Ttwo{} per 1\,s window for one capture of three attack types.}
-\label{fig:ts}
-\end{figure}
-
 \textbf{Against published detectors.} Table~\ref{tab:delta} and Fig.~\ref{fig:floor} compare the floor with~\cite{moriano2026jisa}. On max speedometer, max coolant and correlated signal, the best published detector, even with test-tuned window parameters, ties or trails the range check (delta \DeltaExtMin{} to \DeltaExtMax). On average over its window grid it trails by much more. The published methods earn their keep only on the reverse-light types, where they lead the trivial floor by \DeltaRlMin{} to \DeltaRlMax{}.
 
 \begin{table}[t]
@@ -193,6 +184,7 @@ Attack type & \Ttwo & Published mean & Published max & Delta \\
 \textbf{A learned payload model is not a free improvement.} The per-AID isolation forest is weaker than the range rule on the extreme-value types (e.g.\ \IFspeedo{} on speedometer), because one out-of-range byte barely moves a density score over eight bytes. It is the only payload model that separates reverse-light-on (\IFrlOn): the value 12 is rare in ambient traffic and rarely co-occurs with forward-driving bytes. On reverse-light-off it falls below chance (\IFrlOff), because the injected value 4 is the common state.
 
 \section{Ablation and Sensitivity}
+\label{sec:abl}
 \textbf{Where the signal lives.} Restricting \Ttwo{} to a single byte reproduces the full result on exactly the written bytes (B5 for speedometer and coolant; B0, B2, B6 for correlated signal) and yields chance elsewhere. Ignoring the attacked identifier drops the extreme-value AUCs from 1.00 to \ExclTargetMin--\ExclTargetMax, so physical side-effects in other identifiers carry far less signal than the payload itself. Normalising excursions by range width leaves every AUC unchanged.
 
 \textbf{Robustness.} Figure~\ref{fig:sens} varies the window length (0.25--2\,s) and the share of each ambient capture used for fitting (10--100\%). The extreme-value AUCs never fall below \SensExtMin, so the floor holds with a tenth of the ambient data. Relaxing \Tthree{} to the [p1,\,p99] envelope also leaves them at 0.97 or above. The reverse-light AUCs stay at or below chance throughout.
@@ -206,15 +198,55 @@ Attack type & \Ttwo & Published mean & Published max & Delta \\
 \label{fig:sens}
 \end{figure}
 
+\section{Counterfactual Tests and a Context-Consistency Detector}
+\label{sec:cf}
+\textbf{Two counterfactuals.} \emph{ROAD-IR} clamps every byte written by the attack into the range that byte takes for that identifier in the fit-set ambient captures. The attack keeps its meaning: the speedometer shows the highest speed ever recorded while the car is slow, three wheel speeds sit at the top of their range while the fourth reads zero, and coolant reads its ambient maximum. The reverse-light captures are already in range and stay unchanged. The \emph{benign twin} of a masquerade capture is its fabrication original with every injected frame removed: the identical drive with no attack, scored against the same interval labels. A detector that ``finds'' the interval on a twin is reacting to the driving phase, not to the attack.
+
+\textbf{Bus-state representation.} Every 20\,ms we record the latest payload of each of the 64 identifiers that send at $\geq$5\,Hz in every ambient capture, all three attacked identifiers included. Each identifier becomes one token whose features are the bits and normalised values of its last ten steps (0.2\,s).
+
+\textbf{Detectors.} \emph{CTX} (proposed) is a four-layer Transformer encoder (width 192, six heads) over the 64 identifier tokens. During training, between one and eight tokens are hidden behind a learned mask vector and the model predicts their current eight bytes (8$\times$256-way), as in masked language modelling~\cite{devlin2019}, so it must infer an identifier's payload from the other identifiers alone. It is trained for 20{,}000 steps (AdamW, batch 256) on the ten fit-set ambient captures only, on an NVIDIA L4. At test time each identifier is hidden in turn, within a fixed partition of eight groups, and its negative log-likelihood is computed per byte. Bytes the model cannot predict on held-out ambient traffic (mean NLL $>$1 nat: counters, checksums) are discarded. Each remaining byte's NLL is converted to an ambient tail probability, and the identifier's score is the maximum over its bytes. \emph{PAE} is the same model with cross-identifier attention replaced by a per-token 16-d bottleneck: the same features, training data and output head, but no context. \emph{SUP} is a supervised Transformer-GRU window classifier trained leave-one-capture-out on the labelled masquerade captures (3 seeds). CTX and PAE are evaluated as per-identifier detectors, one per CAN ID with its own threshold calibrated on the held-out ambient captures, on the identifier under attack; Table~\ref{tab:deep} applies the same per-ID treatment to \Ttwo.
+
+\begin{table*}[t]
+\centering
+\caption{Window AUC-ROC on the original captures, on ROAD-IR (injected values clamped into the ambient range) and on the benign twins (same drive, no attack; values well above 0.5 mean the detector reacts to the driving phase). \Ttwo, PAE and CTX are per-identifier detectors on the attacked identifier; SUP is a supervised window classifier (mean of 3 seeds). CTX: mean of \CtxSeeds{} seed(s). Bold: $\geq0.95$.}
+\label{tab:deep}
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}lcccc@{\hskip 10pt}cccc@{\hskip 10pt}cccc@{}}
+\toprule
+ & \multicolumn{4}{c}{ROAD} & \multicolumn{4}{c}{ROAD-IR} & \multicolumn{4}{c}{Benign twin} \\
+\cmidrule(lr){2-5}\cmidrule(lr){6-9}\cmidrule(l){10-13}
+Attack type & \Ttwo & SUP & PAE & CTX & \Ttwo & SUP & PAE & CTX & \Ttwo & SUP & PAE & CTX \\
+\midrule
+\tabinput{gen/paper_table_deep.tex}
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\textbf{The payload shortcut.} On ROAD-IR the per-identifier range rule falls from 1.00 to at most \TtwoIRMax{} on the extreme-value types (Table~\ref{tab:deep}), confirming that its success on ROAD rests entirely on out-of-range bytes.
+
+\textbf{The driving-phase shortcut.} The supervised classifier scores \SupRoadMin--\SupRoadMax{} on ROAD and loses little on ROAD-IR. But on the benign twins it still flags the attack interval with AUC \SupTwinHiMin{} or more on \SupTwinHiN{} of the five attack types; on reverse light off it scores higher on the twin (\SupRlOffTwin) than on the attack (\SupRlOffRoad). The captures of each type follow the same driving script (``accelerate, start injecting, coast, stop injecting''), so a classifier trained on sibling captures learns the manoeuvre, not the attack. Near-perfect supervised scores on ROAD~\cite{guerra2024} should be read with this in mind.
+
+\textbf{Context consistency avoids both.} CTX reaches \CtxRoadMin--1.00 on every attack type, including \CtxRlMin{} or more on the reverse-light captures, where no trivial rule and no published detector exceeds 0.76. It keeps \CtxIRMin{} or more on ROAD-IR and stays at \CtxTwinMin--\CtxTwinMax{} on the benign twins. Figure~\ref{fig:twin} shows why: when the reverse light is forced on, the payload of identifier 0xD0 contradicts what the rest of the bus says about the gear, and its context score jumps exactly over the injection interval; on the twin it does not move. PAE, which sees the same identifier without its context, is inconsistent across attack types. At a 1\% false-positive rate CTX detects \CtxTprSC\% or more of the attack windows on the speedometer and correlated-signal captures. For the reverse-light and coolant captures its ranking is near perfect, but benign excursions on the held-out ambient captures keep the 1\%-FPR detection rate low.
+
+\textbf{An open problem: one alarm for the whole bus.} Fusing all 64 per-identifier scores into a single alarm, after calibrating each on held-out ambient traffic, fails (AUC at most \BusMax). On the benign twins, on average 7 of the 63 non-attacked identifiers individually ``detect'' the attack interval, because the scripted manoeuvres make them unusual too. Per-identifier monitoring localises the attack; turning it into one bus-level decision without these false alarms remains open.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{gen/fig6_context_twin.pdf}
+\caption{CTX score of the attacked identifier (0xD0) for a reverse-light-on capture (top) and its benign twin (bottom).}
+\label{fig:twin}
+\end{figure}
+
 \section{Discussion and Limitations}
-\textbf{What this shows, and what it does not.} We do not claim that masquerade detection is easy in real vehicles. A real attacker controls the payload and would avoid out-of-range values. Our claim concerns the benchmark: the speedometer, coolant and correlated-signal captures inherit extreme payloads from their fabrication originals, so they measure out-of-range detection rather than masquerade detection. High scores on them, including near-perfect supervised scores~\cite{guerra2024}, are consistent with a shortcut.
+\textbf{What this shows, and what it does not.} We do not claim that masquerade detection is easy in real vehicles. A real attacker controls the payload and would avoid out-of-range values. Our claim concerns the benchmark: the speedometer, coolant and correlated-signal captures inherit extreme payloads from their fabrication originals, so they measure out-of-range detection rather than masquerade detection. High scores on them are consistent with a payload shortcut, and supervised scores additionally with a driving-phase shortcut.
 
-\textbf{Recommendations.} (i) Report masquerade results per attack type, not pooled. (ii) Report delta-over-trivial against the \Ttwo{} floor, which takes a few lines of code. (iii) Treat the six reverse-light captures as the informative subset for masquerade detection on ROAD. (iv) New masquerade datasets should inject in-range values, as the ROAD authors themselves call for un-simulated masquerade data~\cite{verma2024}.
+\textbf{Recommendations.} (i) Report masquerade results per attack type, not pooled. (ii) Report delta-over-trivial against the \Ttwo{} floor, which takes a few lines of code. (iii) Treat the six reverse-light captures as the informative subset for masquerade detection on ROAD. (iv) Test detectors on ROAD-IR and on the benign twins before claiming masquerade detection. (v) New masquerade datasets should inject in-range values and vary the driving around each attack; the ROAD authors themselves call for un-simulated masquerade data~\cite{verma2024}.
 
-\textbf{Limitations.} ROAD covers one vehicle on a dynamometer. Overlapping windows make the bootstrap intervals optimistic. Comparator numbers are quoted rather than re-run; they average over the captures of each type and use sample-count windows on 100\,Hz signals, whereas ours are time-based, so the deltas are indicative. The test-tuned published maxima favour the comparators, which strengthens rather than weakens our conclusion. CrySyS is itself synthetic, so it shows that the shortcut is avoidable, not that in-range attacks are realistic.
+\textbf{Limitations.} ROAD covers one vehicle on a dynamometer. Overlapping windows make the bootstrap intervals optimistic. Comparator numbers are quoted rather than re-run; they average over the captures of each type and use sample-count windows on 100\,Hz signals, whereas ours are time-based, so the deltas are indicative. The test-tuned published maxima favour the comparators, which strengthens rather than weakens our conclusion. CrySyS is itself synthetic, so it shows that the shortcut is avoidable, not that in-range attacks are realistic. CTX is evaluated per identifier, and its operating point at 1\% FPR is weak on the reverse-light captures; ROAD-IR is our own construction, and clamping is only one way to make an attack in-range.
 
 \section{Conclusion}
-Seven of ROAD's 13 masquerade captures are solved by checking whether a byte left its ambient range, and on those captures published unsupervised detectors do not beat that rule. The effect follows from how the captures were built, and it disappears on a corpus whose simulated payloads stay in range. The reverse-light captures, which inject a plausible value at the wrong moment, are the part of the benchmark that still measures masquerade detection. We release our floor so that future work can report against it.
+ROAD's masquerade captures contain two shortcuts: payloads that never occur in normal traffic, which a byte-range check exploits, and attack timings tied to scripted manoeuvres, which supervised classifiers exploit. Both follow from how the captures were built. A Transformer that judges each identifier by its consistency with the rest of the bus, trained on attack-free traffic only, detects every attack type and passes both counterfactual tests. We release the floor, ROAD-IR, the benign twins and our models so that future work can report against them.
 
 \section*{Acknowledgment}
 [Funding.] Generative AI disclosure: Claude (Anthropic) was used to assist with code implementation, data analysis and drafting; the authors verified all code, numbers and citations and take full responsibility for the content.
@@ -235,6 +267,8 @@ Seven of ROAD's 13 masquerade captures are solved by checking whether a byte lef
 \bibitem{guerra2024} L.~Guerra, L.~Xu, P.~Bellavista, T.~Chapuis, G.~Duc, P.~Mozharovskyi, and V.-T. Nguyen, ``AI-driven intrusion detection systems (IDS) on the ROAD dataset: A comparative analysis for automotive controller area network (CAN),'' arXiv:2408.17235, 2024.
 \bibitem{longari2022} S.~Longari, A.~Nichelini, C.~A. Pozzoli, M.~Carminati, and S.~Zanero, ``CANdito: Improving payload-based detection of attacks on controller area networks,'' arXiv:2208.06628, 2022.
 \bibitem{gazdag2023} A.~Gazdag, R.~Ferenc, and L.~Butty\'an, ``CrySyS dataset of CAN traffic logs containing fabrication and masquerade attacks,'' \emph{Scientific Data}, vol.~10, 903, 2023.
+\bibitem{geirhos2020} R.~Geirhos, J.-H. Jacobsen, C.~Michaelis, R.~Zemel, W.~Brendel, M.~Bethge, and F.~A. Wichmann, ``Shortcut learning in deep neural networks,'' \emph{Nature Machine Intelligence}, vol.~2, pp.~665--673, 2020.
+\bibitem{devlin2019} J.~Devlin, M.-W. Chang, K.~Lee, and K.~Toutanova, ``BERT: Pre-training of deep bidirectional transformers for language understanding,'' in \emph{Proc. NAACL-HLT}, 2019, pp.~4171--4186.
 \end{thebibliography}
 
 \end{document}
