@@ -64,6 +64,17 @@ GALAXY window 30, sequence length 128; reports MUVIDS recall 0.878 on SHADOW-GCS
 - Recording-identity control: two BENIGN OLD recordings separated with AUC 0.61–0.88 under a within-file split.
 - Timing features: within-SHADOW 0.94 → 1.00, cross-campaign unchanged; per-campaign z-scoring does not help (H3 not supported).
 
+## Extended study (GPU, node1 NVIDIA L4)
+
+- **Faithful GALAXY** (paper hyper-parameters; L=32 and its own L=128), **Transformer**, **DANN-LSTM**
+  (`results/matrix_gpu.csv`, `results/matrix_galaxy128.csv`, 3 seeds). GALAXY: 0.997 within SHADOW,
+  0.28–0.80 across campaigns; heartbeat transfer 0.34–0.59. Transformer: ≤0.78 cross.
+  DANN narrows the gap partly (NEW→OLD 0.80→0.88, OLD→NEW 0.79→0.85, SHADOW→OLD 0.20→0.37).
+- **Few-second target calibration (proposed fix)** (`results/adapt.csv`): Histogram detector fitted only on
+  the first 15 s of benign traffic of each target training file comes within 0.01 AUC of its own
+  within-campaign score in every direction (e.g. HCRL→SHADOW 0.77→0.92; SHADOW→OLD rate rule 0.83→0.98).
+  Assumes the first seconds in a new setting are attack-free.
+
 ## Reproduce
 
 ```bash
@@ -74,6 +85,10 @@ python experiments/run_matrix.py --seeds 5  # experiment (b), ~8 min on 24 cores
 python experiments/run_recording_control.py
 python experiments/run_errors.py
 bash experiments/run_ablation_sensitivity.sh
+# GPU models (run on node1; workers use spawn because of CUDA)
+ssh node1 'cd ~/VM/Lav/mavlink-cross-campaign && PYTHONNOUSERSITE=1 python experiments/run_matrix.py --seeds 3 --vocab train --models GALAXY TF DANN_LSTM --procs 4 --out results/matrix_gpu.csv'
+ssh node1 '... run_matrix.py --seeds 3 --vocab train --models GALAXY --L 128 --stride 64 --out results/matrix_galaxy128.csv'
+python experiments/run_adapt.py             # target calibration
 python experiments/make_tables.py && python -m src.figures
 paper/build.sh                              # needs conda env texenv (tectonic)
 ```

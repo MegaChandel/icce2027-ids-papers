@@ -161,6 +161,10 @@ def numbers(df, mean):
         m["AdAEStoOsrc"] = f"{ad[('SHADOW->OLD', 'M3_AE', 'source', 0)]:.2f}"
         m["AdAEStoOfifteen"] = f"{ad[('SHADOW->OLD', 'M3_AE', 'target', 15)]:.2f}"
         m["AdAEHtoStarget"] = f"{max(ad[('HCRL->SHADOW', 'M3_AE', 'target', n)] for n in (15, 30, 60, 120)):.2f}"
+        # largest shortfall of the 15 s-calibrated Histogram vs its own within-campaign score
+        wmap = {"OLD->NEW": "Within-NEW", "NEW->OLD": "Within-OLD", "HCRL->SHADOW": "Within-SHADOW",
+                "SHADOW->OLD": "Within-OLD", "SHADOW->NEW": "Within-NEW"}
+        m["HistTcGap"] = f"{max(mean.loc['R2_HIST', w] - ad[(st, 'R2_HIST', 'target', 15)] for st, w in wmap.items()):.2f}"
     voc = {}
     for camp in ("OLD", "NEW", "SHADOW"):
         voc[camp] = set()
