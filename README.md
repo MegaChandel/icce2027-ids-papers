@@ -55,3 +55,25 @@ Lee & Kim, PRDC 2025, doi 10.1109/PRDC67299.2025.00014. Evaluates on SHADOW-GCS 
 (Table VIII). **No train-on-one / test-on-other experiment** → cross-campaign transfer is not
 pre-empted. Notes: labels are by source MAC (benign 08:00:27:74:10:db, attack 08:00:27:38:27:83);
 GALAXY window 30, sequence length 128; reports MUVIDS recall 0.878 on SHADOW-GCS (Table III).
+
+## Results (4 Oct 2026) — see paper/main.pdf
+
+- Within-campaign supervised AUC 1.00 (HCRL) / 0.93–0.94 (SHADOW); OLD↔NEW transfer 0.74–0.95;
+  any transfer involving SHADOW 0.15–0.52 (mostly below chance). Trivial rate/histogram: 0.73–0.85 across stacks.
+- NEW heartbeat flood: rate 362 vs 366 fps, JSD 0.007 to normal → no footprint; supervised 1.00 within, LSTM/CNN 0.53/0.58 transferred.
+- Recording-identity control: two BENIGN OLD recordings separated with AUC 0.61–0.88 under a within-file split.
+- Timing features: within-SHADOW 0.94 → 1.00, cross-campaign unchanged; per-campaign z-scoring does not help (H3 not supported).
+
+## Reproduce
+
+```bash
+conda activate mavx; export PYTHONNOUSERSITE=1
+python -m src.inventory                     # data.yaml + parquet cache
+pytest -q tests
+python experiments/run_matrix.py --seeds 5  # experiment (b), ~8 min on 24 cores
+python experiments/run_recording_control.py
+python experiments/run_errors.py
+bash experiments/run_ablation_sensitivity.sh
+python experiments/make_tables.py && python -m src.figures
+paper/build.sh                              # needs conda env texenv (tectonic)
+```
