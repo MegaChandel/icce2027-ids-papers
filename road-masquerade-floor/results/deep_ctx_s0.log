@@ -1,0 +1,27 @@
+device: cuda NVIDIA L4
+/home/ailab/anaconda3/envs/roadmasq/lib/python3.11/site-packages/torch/nn/modules/transformer.py:307: UserWarning: enable_nested_tensor is True, but self.use_nested_tensor is False because encoder_layer.norm_first was True
+  warnings.warn(f"enable_nested_tensor is True, but self.use_nested_tensor is False because {why_not_sparsity_fast_path}")
+  it 2000/20000 train nll/aid 6.376
+  it 4000/20000 train nll/aid 5.648
+  it 6000/20000 train nll/aid 5.017
+  it 8000/20000 train nll/aid 5.108
+  it 10000/20000 train nll/aid 4.869
+  it 12000/20000 train nll/aid 4.740
+  it 14000/20000 train nll/aid 4.261
+  it 16000/20000 train nll/aid 3.988
+  it 18000/20000 train nll/aid 4.473
+  it 20000/20000 train nll/aid 4.357
+[ctx seed 0] trained in 1518s
+  predictable bytes kept: 366/512
+                                        auc_roc  det_rate_at_1pct_fpr
+variant attack_type                                                  
+ROAD    correlated_signal_attack          0.765                   0.0
+        max_engine_coolant_temp_attack    0.028                   0.0
+        max_speedometer_attack            0.348                   0.0
+        reverse_light_off_attack          0.346                   0.0
+        reverse_light_on_attack           0.424                   0.0
+ROAD-IR correlated_signal_attack          0.676                   0.0
+        max_engine_coolant_temp_attack    0.077                   0.0
+        max_speedometer_attack            0.348                   0.0
+        reverse_light_off_attack          0.346                   0.0
+        reverse_light_on_attack           0.424                   0.0

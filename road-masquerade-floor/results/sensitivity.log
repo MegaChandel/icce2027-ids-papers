@@ -1,0 +1,40 @@
+window sweep done (52s)
+t3 sweep done (119s)
+  ambient fraction 0.1 done (129s)
+  ambient fraction 0.25 done (142s)
+  ambient fraction 0.5 done (162s)
+  ambient fraction 0.75 done (188s)
+  ambient fraction 1.0 done (219s)
+attack_type                              correlated_signal_attack  max_engine_coolant_temp_attack  max_speedometer_attack  reverse_light_off_attack  reverse_light_on_attack
+sweep            value detector                                                                                                                                             
+ambient_fraction 0.10  T1_valueset                            1.0                            0.80                    0.98                      0.53                     0.63
+                       T2_range                               1.0                            1.00                    1.00                      0.35                     0.43
+                       T3_envelope                            1.0                            1.00                    1.00                      0.50                     0.56
+                 0.25  T1_valueset                            1.0                            0.94                    1.00                      0.26                     0.45
+                       T2_range                               1.0                            1.00                    1.00                      0.33                     0.38
+                       T3_envelope                            1.0                            1.00                    1.00                      0.38                     0.41
+                 0.50  T1_valueset                            1.0                            0.96                    1.00                      0.56                     0.55
+                       T2_range                               1.0                            1.00                    1.00                      0.44                     0.37
+                       T3_envelope                            1.0                            1.00                    1.00                      0.57                     0.44
+                 0.75  T1_valueset                            1.0                            0.96                    1.00                      0.56                     0.41
+                       T2_range                               1.0                            1.00                    1.00                      0.48                     0.43
+                       T3_envelope                            1.0                            1.00                    1.00                      0.58                     0.47
+                 1.00  T1_valueset                            1.0                            0.98                    1.00                      0.56                     0.41
+                       T2_range                               1.0                            1.00                    1.00                      0.48                     0.44
+                       T3_envelope                            1.0                            1.00                    1.00                      0.58                     0.48
+t3_quantile      0.00  T3_envelope                            1.0                            1.00                    1.00                      0.58                     0.48
+                 0.10  T3_envelope_p0.1                       1.0                            1.00                    0.98                      0.43                     0.42
+                 1.00  T3_envelope_p1                         1.0                            0.97                    0.97                      0.28                     0.46
+window_length_s  0.25  T1_valueset                            1.0                            0.84                    1.00                      0.50                     0.49
+                       T2_range                               1.0                            1.00                    1.00                      0.49                     0.50
+                       T3_envelope                            1.0                            1.00                    1.00                      0.50                     0.50
+                 0.50  T1_valueset                            1.0                            0.97                    1.00                      0.51                     0.48
+                       T2_range                               1.0                            1.00                    1.00                      0.49                     0.49
+                       T3_envelope                            1.0                            1.00                    1.00                      0.51                     0.50
+                 1.00  T1_valueset                            1.0                            0.98                    1.00                      0.56                     0.41
+                       T2_range                               1.0                            1.00                    1.00                      0.48                     0.44
+                       T3_envelope                            1.0                            1.00                    1.00                      0.58                     0.48
+                 2.00  T1_valueset                            1.0                            1.00                    1.00                      0.59                     0.40
+                       T2_range                               1.0                            1.00                    1.00                      0.48                     0.45
+                       T3_envelope                            1.0                            1.00                    1.00                      0.56                     0.50
+wrote /home/ailab/VM/Lav/road-masquerade-floor/results/sensitivity.csv

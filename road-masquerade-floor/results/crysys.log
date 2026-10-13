@@ -1,0 +1,47 @@
+  1/26 recordings
+  2/26 recordings
+  3/26 recordings
+  4/26 recordings
+  5/26 recordings
+  6/26 recordings
+  7/26 recordings
+  8/26 recordings
+  9/26 recordings
+  10/26 recordings
+  11/26 recordings
+  12/26 recordings
+  13/26 recordings
+  14/26 recordings
+  15/26 recordings
+  16/26 recordings
+  17/26 recordings
+  18/26 recordings
+  19/26 recordings
+  20/26 recordings
+  21/26 recordings
+  22/26 recordings
+  23/26 recordings
+  24/26 recordings
+  25/26 recordings
+  26/26 recordings
+detector                T1_valueset  T2_range
+family      strategy                         
+fabrication ADD-DECR          0.338     0.457
+            ADD-INCR          0.351     0.467
+            CONST             0.347     0.462
+            NEG-OFFSET        0.338     0.457
+            POS-OFFSET        0.355     0.469
+            REPLAY            0.353     0.465
+masquerade  ADD-DECR          0.464     0.487
+            ADD-INCR          0.464     0.487
+            CONST             0.464     0.487
+            NEG-OFFSET        0.458     0.483
+            POS-OFFSET        0.467     0.490
+            REPLAY            0.469     0.490
+                          mean  median
+family      detector                  
+fabrication T1_valueset  0.347     0.5
+            T2_range     0.463     0.5
+masquerade  T1_valueset  0.464     0.5
+            T2_range     0.487     0.5
+wrote /home/ailab/VM/Lav/road-masquerade-floor/results/crysys.csv

@@ -1,0 +1,20 @@
+seed 0 done (58s)
+seed 1 done (116s)
+seed 2 done (174s)
+                                          auc_roc        det_rate_at_1pct_fpr      frame_auc_roc       
+                                             mean    std                 mean  std          mean    std
+capture                                                                                                
+correlated_signal_attack_1_masquerade       0.874  0.018                  0.0  0.0         0.971  0.003
+correlated_signal_attack_2_masquerade       0.330  0.036                  0.0  0.0         0.982  0.000
+correlated_signal_attack_3_masquerade       0.993  0.002                  0.0  0.0         0.981  0.001
+max_engine_coolant_temp_attack_masquerade   0.802  0.014                  0.0  0.0         0.843  0.017
+max_speedometer_attack_1_masquerade         0.527  0.013                  0.0  0.0         0.892  0.019
+max_speedometer_attack_2_masquerade         0.781  0.011                  0.0  0.0         0.922  0.004
+max_speedometer_attack_3_masquerade         0.905  0.020                  0.0  0.0         0.856  0.018
+reverse_light_off_attack_1_masquerade       0.381  0.005                  0.0  0.0         0.262  0.023
+reverse_light_off_attack_2_masquerade       0.395  0.004                  0.0  0.0         0.287  0.037
+reverse_light_off_attack_3_masquerade       0.335  0.002                  0.0  0.0         0.300  0.036
+reverse_light_on_attack_1_masquerade        0.832  0.011                  0.0  0.0         0.924  0.003
+reverse_light_on_attack_2_masquerade        0.882  0.005                  0.0  0.0         0.938  0.005
+reverse_light_on_attack_3_masquerade        0.858  0.008                  0.0  0.0         0.949  0.005
+wrote /home/ailab/VM/Lav/road-masquerade-floor/results/controls.csv

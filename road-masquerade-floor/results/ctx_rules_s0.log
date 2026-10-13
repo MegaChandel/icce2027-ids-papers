@@ -1,0 +1,56 @@
+predictable bytes: 366/512
+non-stationary AIDs (ambient-only test): ['0xe', '0x33', '0x3c', '0x3d', '0xa7', '0xc0', '0xd0', '0xf4', '0x130', '0x153', '0x162', '0x19c', '0x1ca', '0x207', '0x230', '0x239', '0x26e', '0x274', '0x28b', '0x295', '0x2a3', '0x2b4', '0x2d2', '0x2d7', '0x2e2', '0x32d', '0x345', '0x354', '0x366', '0x3e4', '0x430', '0x4e7', '0x577', '0x580', '0x585', '0x5b3', '0x5e1', '0x636', '0x65c', '0x662', '0x66c', '0x69e', '0x6fc'] drift share: [3.01, 1.04, 1.04, 1.72, 1.61, 1.12, 1.21, 1.06, 4.3, 1.52, 1.35, 1.22, 4.3, 1.12, 1.28, 1.37, 3.87, 2.04, 1.02, 1.19, 2.55, 1.52, 2.83, 1.62, 4.3, 1.98, 1.07, 1.11, 1.24, 2.94, 2.49, 1.8, 1.2, 1.16, 1.1, 1.8, 1.42, 1.59, 1.03, 1.71, 1.46, 1.38, 2.96]
+variant                                    ROAD  ROAD-IR  TWIN
+rule       attack_type                                        
+aid_change correlated_signal_attack        0.73     0.73  0.63
+           max_engine_coolant_temp_attack  0.97     0.97  0.56
+           max_speedometer_attack          0.64     0.64  0.41
+           reverse_light_off_attack        0.83     0.83  0.63
+           reverse_light_on_attack         0.62     0.62  0.35
+aid_tail   correlated_signal_attack        1.00     1.00  0.49
+           max_engine_coolant_temp_attack  0.98     0.98  0.62
+           max_speedometer_attack          1.00     1.00  0.21
+           reverse_light_off_attack        0.99     0.99  0.53
+           reverse_light_on_attack         0.99     0.99  0.34
+bus_calib  correlated_signal_attack        0.99     0.99  0.56
+           max_engine_coolant_temp_attack  0.68     0.69  0.71
+           max_speedometer_attack          0.53     0.63  0.41
+           reverse_light_off_attack        0.54     0.54  0.54
+           reverse_light_on_attack         0.41     0.41  0.41
+bus_tail   correlated_signal_attack        0.50     0.50  0.50
+           max_engine_coolant_temp_attack  0.50     0.50  0.50
+           max_speedometer_attack          0.50     0.50  0.50
+           reverse_light_off_attack        0.34     0.34  0.34
+           reverse_light_on_attack         0.50     0.50  0.50
+bus_z      correlated_signal_attack        0.76     0.68  0.63
+           max_engine_coolant_temp_attack  0.03     0.08  0.19
+           max_speedometer_attack          0.35     0.35  0.35
+           reverse_light_off_attack        0.35     0.35  0.27
+           reverse_light_on_attack         0.42     0.42  0.42
+variant                                    ROAD  ROAD-IR  TWIN
+rule       attack_type                                        
+aid_change correlated_signal_attack        0.33     0.33  0.00
+           max_engine_coolant_temp_attack  0.62     0.62  0.00
+           max_speedometer_attack          0.16     0.16  0.00
+           reverse_light_off_attack        0.34     0.34  0.00
+           reverse_light_on_attack         0.19     0.19  0.00
+aid_tail   correlated_signal_attack        0.97     0.97  0.00
+           max_engine_coolant_temp_attack  0.00     0.00  0.00
+           max_speedometer_attack          0.94     0.94  0.00
+           reverse_light_off_attack        0.00     0.00  0.00
+           reverse_light_on_attack         0.00     0.00  0.00
+bus_calib  correlated_signal_attack        0.97     0.97  0.00
+           max_engine_coolant_temp_attack  0.62     0.62  0.67
+           max_speedometer_attack          0.01     0.14  0.00
+           reverse_light_off_attack        0.97     0.97  0.97
+           reverse_light_on_attack         0.02     0.02  0.02
+bus_tail   correlated_signal_attack        0.00     0.00  0.00
+           max_engine_coolant_temp_attack  0.00     0.00  0.00
+           max_speedometer_attack          0.00     0.00  0.00
+           reverse_light_off_attack        0.00     0.00  0.00
+           reverse_light_on_attack         0.00     0.00  0.00
+bus_z      correlated_signal_attack        0.00     0.00  0.00
+           max_engine_coolant_temp_attack  0.00     0.00  0.00
+           max_speedometer_attack          0.00     0.00  0.00
+           reverse_light_off_attack        0.00     0.00  0.00
+           reverse_light_on_attack         0.00     0.00  0.00

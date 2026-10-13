@@ -1,0 +1,54 @@
+device: cuda NVIDIA L4
+  it 2000/20000 train nll/aid 4.289
+  it 4000/20000 train nll/aid 3.217
+  it 6000/20000 train nll/aid 2.348
+  it 8000/20000 train nll/aid 1.839
+  it 10000/20000 train nll/aid 1.502
+  it 12000/20000 train nll/aid 1.272
+  it 14000/20000 train nll/aid 1.109
+  it 16000/20000 train nll/aid 0.994
+  it 18000/20000 train nll/aid 1.027
+  it 20000/20000 train nll/aid 1.014
+[pae seed 0] trained in 598s
+  predictable bytes kept: 477/512
+  it 2000/20000 train nll/aid 5.432
+  it 4000/20000 train nll/aid 3.569
+  it 6000/20000 train nll/aid 2.796
+  it 8000/20000 train nll/aid 2.287
+  it 10000/20000 train nll/aid 1.953
+  it 12000/20000 train nll/aid 1.794
+  it 14000/20000 train nll/aid 1.482
+  it 16000/20000 train nll/aid 1.590
+  it 18000/20000 train nll/aid 1.469
+  it 20000/20000 train nll/aid 1.533
+[pae seed 1] trained in 762s
+  predictable bytes kept: 456/512
+  it 2000/20000 train nll/aid 4.632
+  it 4000/20000 train nll/aid 3.139
+  it 6000/20000 train nll/aid 2.346
+  it 8000/20000 train nll/aid 1.981
+  it 10000/20000 train nll/aid 1.613
+  it 12000/20000 train nll/aid 1.481
+  it 14000/20000 train nll/aid 1.204
+  it 16000/20000 train nll/aid 1.284
+  it 18000/20000 train nll/aid 1.115
+  it 20000/20000 train nll/aid 1.236
+[pae seed 2] trained in 661s
+  predictable bytes kept: 466/512
+                                        auc_roc  det_rate_at_1pct_fpr
+variant attack_type                                                  
+ROAD    correlated_signal_attack          0.519                   0.0
+        max_engine_coolant_temp_attack    0.850                   0.0
+        max_speedometer_attack            0.439                   0.0
+        reverse_light_off_attack          0.372                   0.0
+        reverse_light_on_attack           0.536                   0.0
+ROAD-IR correlated_signal_attack          0.519                   0.0
+        max_engine_coolant_temp_attack    0.860                   0.0
+        max_speedometer_attack            0.439                   0.0
+        reverse_light_off_attack          0.372                   0.0
+        reverse_light_on_attack           0.536                   0.0
+TWIN    correlated_signal_attack          0.519                   0.0
+        max_engine_coolant_temp_attack    0.760                   0.0
+        max_speedometer_attack            0.439                   0.0
+        reverse_light_off_attack          0.372                   0.0
+        reverse_light_on_attack           0.536                   0.0
