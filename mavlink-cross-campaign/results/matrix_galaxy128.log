@@ -1,0 +1,8 @@
+24 jobs
+  10/24 (74s)
+  20/24 (158s)
+  24/24 (178s)
+setting  HCRL->SHADOW  NEW->OLD  OLD->NEW  SHADOW->NEW  SHADOW->OLD  Within-NEW  Within-OLD  Within-SHADOW
+model                                                                                                     
+GALAXY          0.391     0.863     0.766        0.365        0.324       0.994       0.998           0.99
+wrote results/matrix_galaxy128.csv
