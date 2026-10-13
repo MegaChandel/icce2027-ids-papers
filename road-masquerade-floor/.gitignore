@@ -1,0 +1,9 @@
+data/
+results/
+__pycache__/
+*.pyc
+.pytest_cache/
+paper/gen/
+paper/*.log
+results/models/
+results/nll/
