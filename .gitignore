@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+# never commit datasets or large regenerable dumps
+**/data/raw/**
+!**/data/raw/pdl.sh
+!**/data/raw/crysys/
+!**/data/raw/crysys/pdl.sh
+**/data/interim/
+**/results/nll/
+GALAXY_*.pdf
